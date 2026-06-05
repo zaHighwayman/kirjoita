@@ -3,627 +3,375 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Kirjoita — Harjoittele suomen kielen esseekirjoittamista</title>
+  <title>Kirjoita — Suomen kielen esseeharjoittelu</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet" />
   <style>
-    /* ── TOKENS ── */
     :root {
-      --bg:       #F7F4EF;
-      --surface:  #FFFFFF;
-      --ink:      #1A1714;
-      --ink-2:    #6B6560;
-      --ink-3:    #A09890;
-      --accent:   #2D5F3F;
-      --accent-l: #E8F2EC;
-      --warn:     #B85C2A;
-      --warn-l:   #FDF0E8;
-      --gold:     #C49A28;
-      --gold-l:   #FDF8E8;
-      --border:   #E4DED6;
-      --r:        12px;
-      --r-lg:     20px;
-      --shadow:   0 2px 16px rgba(26,23,20,.07);
-      --shadow-lg:0 8px 40px rgba(26,23,20,.12);
-      font-size: 16px;
+      --bg:#F7F4EF; --surface:#FFFFFF; --ink:#1A1714; --ink-2:#6B6560; --ink-3:#A09890;
+      --accent:#2D5F3F; --accent-l:#E8F2EC; --accent-d:#1e4129;
+      --warn:#B85C2A; --warn-l:#FDF0E8;
+      --gold:#C49A28; --gold-l:#FDF8E8;
+      --blue:#3b6ec9; --blue-l:#EBF0FB;
+      --purple:#7c4db8; --purple-l:#F3EEFB;
+      --border:#E4DED6; --r:12px; --r-lg:20px;
+      --shadow:0 2px 16px rgba(26,23,20,.07); --shadow-lg:0 8px 40px rgba(26,23,20,.12);
     }
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
-    body {
-      font-family: 'DM Sans', sans-serif;
-      background: var(--bg);
-      color: var(--ink);
-      min-height: 100vh;
-      line-height: 1.6;
-    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html{scroll-behavior:smooth}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;line-height:1.6}
+    h1,h2,h3{font-family:'DM Serif Display',serif;line-height:1.2}
+    h1{font-size:clamp(2rem,5vw,3.2rem)} h2{font-size:clamp(1.4rem,3vw,1.9rem)} h3{font-size:1.15rem}
+    p{color:var(--ink-2)}
+    .container{max-width:700px;margin:0 auto;padding:0 24px}
+    .screen{display:none;min-height:100vh}
+    .screen.active{display:flex;flex-direction:column}
 
-    /* ── TYPOGRAPHY ── */
-    h1,h2,h3 { font-family: 'DM Serif Display', serif; line-height: 1.2; }
-    h1 { font-size: clamp(2rem, 5vw, 3.2rem); }
-    h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); }
-    h3 { font-size: 1.15rem; }
-    p  { color: var(--ink-2); }
+    /* TOPBAR */
+    .topbar{position:sticky;top:0;z-index:50;background:rgba(247,244,239,.93);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:12px 24px}
+    .topbar-inner{max-width:700px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .logo{font-family:'DM Serif Display',serif;font-size:1.3rem;color:var(--accent);text-decoration:none}
+    .stats-row{display:flex;align-items:center;gap:18px}
+    .stat-chip{display:flex;align-items:center;gap:5px;font-size:.82rem;font-weight:500;color:var(--ink-2)}
+    .stat-chip .val{font-weight:700;color:var(--ink)}
+    .xp-bar-wrap{height:4px;background:var(--border);border-radius:99px;overflow:hidden}
+    .xp-bar-fill{height:100%;background:var(--accent);border-radius:99px;transition:width .5s cubic-bezier(.4,0,.2,1)}
 
-    /* ── LAYOUT ── */
-    .container { max-width: 680px; margin: 0 auto; padding: 0 24px; }
-    .screen { display: none; min-height: 100vh; }
-    .screen.active { display: flex; flex-direction: column; }
+    /* BUTTONS */
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-family:'DM Sans',sans-serif;font-size:.95rem;font-weight:600;padding:13px 28px;border-radius:var(--r);border:none;cursor:pointer;transition:transform .12s,box-shadow .12s,background .15s;text-decoration:none;white-space:nowrap}
+    .btn:active{transform:scale(.97)}
+    .btn-primary{background:var(--accent);color:#fff;box-shadow:0 2px 12px rgba(45,95,63,.25)}
+    .btn-primary:hover{background:var(--accent-d);box-shadow:0 4px 20px rgba(45,95,63,.35)}
+    .btn-secondary{background:var(--surface);color:var(--ink);border:1.5px solid var(--border)}
+    .btn-secondary:hover{background:var(--bg)}
+    .btn-ghost{background:transparent;color:var(--ink-2);padding:10px 16px}
+    .btn-ghost:hover{color:var(--ink);background:var(--border)}
+    .btn-full{width:100%} .btn-sm{padding:9px 18px;font-size:.85rem}
+    .btn[disabled]{opacity:.45;cursor:not-allowed;pointer-events:none}
 
-    /* ── TOPBAR ── */
-    .topbar {
-      position: sticky; top: 0; z-index: 50;
-      background: rgba(247,244,239,.92);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border);
-      padding: 14px 24px;
-    }
-    .topbar-inner {
-      max-width: 680px; margin: 0 auto;
-      display: flex; align-items: center; justify-content: space-between; gap: 16px;
-    }
-    .logo { font-family: 'DM Serif Display', serif; font-size: 1.3rem; color: var(--accent); text-decoration: none; }
-    .stats-row { display: flex; align-items: center; gap: 20px; }
-    .stat-chip {
-      display: flex; align-items: center; gap: 6px;
-      font-size: .82rem; font-weight: 500; color: var(--ink-2);
-    }
-    .stat-chip .icon { font-size: 1rem; }
-    .stat-chip .val { font-weight: 600; color: var(--ink); }
+    /* CARDS */
+    .card{background:var(--surface);border-radius:var(--r-lg);border:1px solid var(--border);padding:28px;box-shadow:var(--shadow)}
+    .card+.card{margin-top:16px}
 
-    /* ── XP BAR ── */
-    .xp-bar-wrap { height: 4px; background: var(--border); border-radius: 99px; overflow: hidden; }
-    .xp-bar-fill { height: 100%; background: var(--accent); border-radius: 99px; transition: width .5s cubic-bezier(.4,0,.2,1); }
+    /* WELCOME */
+    #screen-welcome{justify-content:center;align-items:center;padding:40px 24px;background:var(--bg)}
+    .welcome-badge{display:inline-block;background:var(--accent-l);color:var(--accent);font-size:.8rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:6px 14px;border-radius:99px;margin-bottom:24px}
+    .auth-box{background:var(--surface);border-radius:var(--r-lg);border:1px solid var(--border);padding:36px;box-shadow:var(--shadow-lg);width:100%;max-width:420px;text-align:left}
+    .tab-row{display:flex;background:var(--bg);border-radius:var(--r);padding:4px;margin-bottom:28px;gap:4px}
+    .tab-btn{flex:1;padding:10px;border:none;border-radius:8px;background:transparent;font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:500;color:var(--ink-2);cursor:pointer;transition:all .15s}
+    .tab-btn.active{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:var(--shadow)}
+    .field-group{display:flex;flex-direction:column;gap:6px;margin-bottom:18px}
+    .field-group label{font-size:.85rem;font-weight:600;color:var(--ink)}
+    .field-group input{padding:12px 16px;border:1.5px solid var(--border);border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:.95rem;color:var(--ink);background:var(--bg);outline:none;transition:border-color .15s}
+    .field-group input:focus{border-color:var(--accent);background:var(--surface)}
+    .code-display{background:var(--accent-l);border:1.5px dashed var(--accent);border-radius:var(--r);padding:18px;text-align:center;margin:20px 0}
+    .code-display .code-val{font-family:'DM Serif Display',serif;font-size:2rem;color:var(--accent);letter-spacing:.1em}
+    .api-note{background:var(--gold-l);border:1px solid var(--gold);border-radius:var(--r);padding:14px 16px;margin-bottom:18px;font-size:.83rem;color:var(--ink-2);line-height:1.5}
+    .api-note a{color:var(--accent);font-weight:600}
 
-    /* ── BUTTONS ── */
-    .btn {
-      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-      font-family: 'DM Sans', sans-serif; font-size: .95rem; font-weight: 600;
-      padding: 13px 28px; border-radius: var(--r); border: none; cursor: pointer;
-      transition: transform .12s, box-shadow .12s, background .15s;
-      text-decoration: none; white-space: nowrap;
-    }
-    .btn:active { transform: scale(.97); }
-    .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 2px 12px rgba(45,95,63,.25); }
-    .btn-primary:hover { background: #234d31; box-shadow: 0 4px 20px rgba(45,95,63,.35); }
-    .btn-secondary { background: var(--surface); color: var(--ink); border: 1.5px solid var(--border); }
-    .btn-secondary:hover { background: var(--bg); }
-    .btn-ghost { background: transparent; color: var(--ink-2); padding: 10px 16px; }
-    .btn-ghost:hover { color: var(--ink); background: var(--border); }
-    .btn-full { width: 100%; }
-    .btn-sm { padding: 9px 18px; font-size: .85rem; }
-    .btn[disabled] { opacity: .45; cursor: not-allowed; pointer-events: none; }
+    /* HOME */
+    #screen-home{padding-bottom:80px}
+    .home-hero{padding:36px 0 28px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+    .level-badge{width:68px;height:68px;border-radius:50%;background:var(--accent);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'DM Serif Display',serif;flex-shrink:0}
+    .level-badge .lnum{font-size:1.6rem;line-height:1}
+    .level-badge .ltxt{font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;opacity:.8}
+    .section-title{font-family:'DM Serif Display',serif;font-size:1.1rem;margin-bottom:14px;color:var(--ink)}
+    .exercises-grid{display:flex;flex-direction:column;gap:10px}
+    .exercise-row{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);padding:16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .12s}
+    .exercise-row:hover{border-color:var(--accent);box-shadow:0 4px 20px rgba(45,95,63,.1);transform:translateY(-1px)}
+    .exercise-row.locked{opacity:.45;cursor:not-allowed;pointer-events:none}
+    .ex-icon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0}
+    .ex-info{flex:1}
+    .ex-title{font-weight:600;font-size:.93rem;margin-bottom:2px}
+    .ex-desc{font-size:.78rem;color:var(--ink-3)}
+    .ex-meta{display:flex;align-items:center;gap:8px;flex-shrink:0}
+    .ex-stars{color:var(--gold);font-size:.82rem}
+    .ex-xp{font-size:.72rem;font-weight:600;color:var(--accent);background:var(--accent-l);padding:3px 8px;border-radius:99px}
+    .history-list{display:flex;flex-direction:column;gap:8px}
+    .history-item{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r)}
+    .history-score{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.88rem;flex-shrink:0}
+    .score-a{background:var(--accent-l);color:var(--accent)}
+    .score-b{background:var(--gold-l);color:var(--gold)}
+    .score-c{background:var(--warn-l);color:var(--warn)}
 
-    /* ── CARDS ── */
-    .card {
-      background: var(--surface); border-radius: var(--r-lg);
-      border: 1px solid var(--border); padding: 28px;
-      box-shadow: var(--shadow);
-    }
-    .card + .card { margin-top: 16px; }
+    /* EXERCISE SCREEN */
+    #screen-exercise{padding-bottom:80px}
+    .ex-header{padding:20px 0 16px;display:flex;align-items:center;gap:12px}
+    .back-btn{background:none;border:none;cursor:pointer;padding:8px;border-radius:8px;color:var(--ink-2);font-size:1.2rem;transition:background .12s;flex-shrink:0}
+    .back-btn:hover{background:var(--border)}
+    .progress-dots{display:flex;gap:8px;margin-bottom:24px}
+    .dot{height:5px;flex:1;border-radius:99px;background:var(--border);transition:background .3s}
+    .dot.done{background:var(--accent)}
+    .dot.current{background:var(--accent);opacity:.4;animation:pulse-dot 1.2s ease-in-out infinite}
+    @keyframes pulse-dot{0%,100%{opacity:.4}50%{opacity:1}}
+    .prompt-card{background:var(--accent-l);border:1.5px solid rgba(45,95,63,.2);border-radius:var(--r-lg);padding:24px;margin-bottom:20px;position:relative;overflow:hidden}
+    .prompt-card::before{content:'"';font-family:'DM Serif Display',serif;font-size:7rem;color:var(--accent);opacity:.08;position:absolute;top:-20px;left:10px;line-height:1;pointer-events:none}
+    .prompt-type-label{font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+    .prompt-text{font-family:'DM Serif Display',serif;font-size:1.25rem;color:var(--ink);line-height:1.4}
+    .prompt-hint{margin-top:12px;font-size:.82rem;color:var(--ink-2);padding-top:12px;border-top:1px solid rgba(45,95,63,.15)}
+    .source-text-box{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);padding:20px;margin-bottom:20px;font-size:.9rem;line-height:1.8;color:var(--ink)}
+    .source-text-box .src-label{font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-bottom:10px}
+    .tips-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+    .tip-chip{background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:5px 13px;font-size:.77rem;color:var(--ink-2)}
 
-    /* ── WELCOME SCREEN ── */
-    #screen-welcome {
-      justify-content: center; align-items: center;
-      padding: 40px 24px; text-align: center;
-      background: var(--bg);
-    }
-    .welcome-badge {
-      display: inline-block; background: var(--accent-l); color: var(--accent);
-      font-size: .8rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
-      padding: 6px 14px; border-radius: 99px; margin-bottom: 24px;
-    }
-    .welcome-title { margin-bottom: 16px; }
-    .welcome-sub { font-size: 1.05rem; color: var(--ink-2); max-width: 440px; margin: 0 auto 40px; }
-    .auth-box {
-      background: var(--surface); border-radius: var(--r-lg);
-      border: 1px solid var(--border); padding: 36px;
-      box-shadow: var(--shadow-lg); width: 100%; max-width: 420px;
-      text-align: left;
-    }
-    .tab-row {
-      display: flex; background: var(--bg); border-radius: var(--r);
-      padding: 4px; margin-bottom: 28px; gap: 4px;
-    }
-    .tab-btn {
-      flex: 1; padding: 10px; border: none; border-radius: 8px;
-      background: transparent; font-family: 'DM Sans', sans-serif;
-      font-size: .9rem; font-weight: 500; color: var(--ink-2); cursor: pointer;
-      transition: all .15s;
-    }
-    .tab-btn.active { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: var(--shadow); }
-    .field-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
-    .field-group label { font-size: .85rem; font-weight: 600; color: var(--ink); }
-    .field-group input {
-      padding: 12px 16px; border: 1.5px solid var(--border); border-radius: var(--r);
-      font-family: 'DM Sans', sans-serif; font-size: .95rem; color: var(--ink);
-      background: var(--bg); outline: none; transition: border-color .15s;
-    }
-    .field-group input:focus { border-color: var(--accent); background: var(--surface); }
-    .code-display {
-      background: var(--accent-l); border: 1.5px dashed var(--accent);
-      border-radius: var(--r); padding: 18px; text-align: center; margin: 20px 0;
-    }
-    .code-display .code-val {
-      font-family: 'DM Serif Display', serif; font-size: 2rem; color: var(--accent);
-      letter-spacing: .1em;
-    }
-    .code-display p { font-size: .82rem; margin-top: 6px; }
-    .api-note {
-      background: var(--gold-l); border: 1px solid var(--gold);
-      border-radius: var(--r); padding: 14px 16px; margin-bottom: 18px;
-      font-size: .83rem; color: var(--ink-2); line-height: 1.5;
-    }
-    .api-note a { color: var(--accent); font-weight: 600; }
-
-    /* ── HOME SCREEN ── */
-    #screen-home { padding-bottom: 60px; }
-    .home-hero {
-      padding: 40px 0 32px;
-      display: flex; align-items: center; justify-content: space-between; gap: 20px;
-    }
-    .level-badge {
-      width: 72px; height: 72px; border-radius: 50%;
-      background: var(--accent); color: #fff;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      font-family: 'DM Serif Display', serif; flex-shrink: 0;
-    }
-    .level-badge .lnum { font-size: 1.7rem; line-height: 1; }
-    .level-badge .ltxt { font-size: .6rem; letter-spacing: .08em; text-transform: uppercase; opacity: .8; }
-    .xp-section { flex: 1; }
-    .xp-label { font-size: .8rem; font-weight: 600; color: var(--ink-2); margin-bottom: 8px; display: flex; justify-content: space-between; }
-    .streak-flame { font-size: 1.5rem; }
-
-    .section-title {
-      font-family: 'DM Serif Display', serif; font-size: 1.1rem;
-      margin-bottom: 16px; color: var(--ink);
-    }
-
-    /* ── EXERCISE CARD (home) ── */
-    .exercises-grid { display: flex; flex-direction: column; gap: 12px; }
-    .exercise-row {
-      background: var(--surface); border: 1.5px solid var(--border);
-      border-radius: var(--r); padding: 18px 20px;
-      display: flex; align-items: center; gap: 16px; cursor: pointer;
-      transition: border-color .15s, box-shadow .15s, transform .12s;
-    }
-    .exercise-row:hover { border-color: var(--accent); box-shadow: 0 4px 20px rgba(45,95,63,.1); transform: translateY(-1px); }
-    .exercise-row.locked { opacity: .45; cursor: not-allowed; pointer-events: none; }
-    .ex-icon {
-      width: 44px; height: 44px; border-radius: 10px;
-      display: flex; align-items: center; justify-content: center; font-size: 1.3rem;
-      flex-shrink: 0;
-    }
-    .ex-info { flex: 1; }
-    .ex-title { font-weight: 600; font-size: .95rem; margin-bottom: 3px; }
-    .ex-desc { font-size: .8rem; color: var(--ink-3); }
-    .ex-meta { display: flex; align-items: center; gap: 8px; }
-    .ex-stars { color: var(--gold); font-size: .85rem; }
-    .ex-xp { font-size: .75rem; font-weight: 600; color: var(--accent); background: var(--accent-l); padding: 3px 8px; border-radius: 99px; }
-    .ex-lock { font-size: 1.1rem; color: var(--ink-3); }
-
-    /* Recent results */
-    .history-list { display: flex; flex-direction: column; gap: 8px; }
-    .history-item {
-      display: flex; align-items: center; gap: 12px; padding: 12px 16px;
-      background: var(--surface); border: 1px solid var(--border); border-radius: var(--r);
-    }
-    .history-score {
-      width: 40px; height: 40px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 700; font-size: .9rem; flex-shrink: 0;
-    }
-    .score-a { background: var(--accent-l); color: var(--accent); }
-    .score-b { background: var(--gold-l); color: var(--gold); }
-    .score-c { background: var(--warn-l); color: var(--warn); }
-    .history-text { flex: 1; font-size: .85rem; }
-    .history-prompt { font-weight: 500; color: var(--ink); }
-    .history-date { font-size: .75rem; color: var(--ink-3); }
-
-    /* ── EXERCISE SCREEN ── */
-    #screen-exercise { padding-bottom: 60px; }
-    .ex-header { padding: 24px 0 20px; display: flex; align-items: center; gap: 14px; }
-    .back-btn { background: none; border: none; cursor: pointer; padding: 8px; border-radius: 8px; color: var(--ink-2); font-size: 1.2rem; transition: background .12s; }
-    .back-btn:hover { background: var(--border); }
-    .ex-header-title { font-family: 'DM Serif Display', serif; font-size: 1.3rem; }
-
-    /* Progress dots */
-    .progress-dots { display: flex; gap: 8px; margin-bottom: 28px; }
-    .dot { height: 6px; flex: 1; border-radius: 99px; background: var(--border); transition: background .3s; }
-    .dot.done { background: var(--accent); }
-    .dot.current { background: var(--accent); opacity: .4; animation: pulse-dot 1.2s ease-in-out infinite; }
-    @keyframes pulse-dot { 0%,100%{opacity:.4} 50%{opacity:1} }
-
-    /* Prompt card */
-    .prompt-card {
-      background: var(--accent-l); border: 1.5px solid rgba(45,95,63,.2);
-      border-radius: var(--r-lg); padding: 28px 28px 24px;
-      margin-bottom: 24px; position: relative; overflow: hidden;
-    }
-    .prompt-card::before {
-      content: '"'; font-family: 'DM Serif Display', serif; font-size: 8rem;
-      color: var(--accent); opacity: .08; position: absolute; top: -20px; left: 12px;
-      line-height: 1; pointer-events: none;
-    }
-    .prompt-type { font-size: .75rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; }
-    .prompt-text { font-family: 'DM Serif Display', serif; font-size: 1.3rem; color: var(--ink); line-height: 1.4; }
-    .prompt-hint { margin-top: 14px; font-size: .83rem; color: var(--ink-2); padding-top: 14px; border-top: 1px solid rgba(45,95,63,.15); }
-
-    /* Tips chip row */
-    .tips-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
-    .tip-chip {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 99px; padding: 6px 14px; font-size: .78rem; color: var(--ink-2);
-      cursor: default;
-    }
-    .tip-chip strong { color: var(--ink); }
+    /* Fill-in-the-blank */
+    .blank-text{font-size:1rem;line-height:2.2;color:var(--ink);margin-bottom:20px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);padding:20px}
+    .blank-word{display:inline-block;min-width:80px;border-bottom:2px solid var(--accent);background:var(--accent-l);border-radius:4px;padding:2px 8px;margin:0 3px;cursor:text;font-style:italic;color:var(--accent-d);font-weight:500}
+    .blank-input-row{display:flex;flex-direction:column;gap:10px;margin-bottom:18px}
+    .blank-input-item{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r)}
+    .blank-input-item .orig{font-size:.85rem;color:var(--ink-3);min-width:80px;font-style:italic}
+    .blank-input-item .arrow{color:var(--ink-3);font-size:.9rem}
+    .blank-input-item input{flex:1;border:none;border-bottom:1.5px solid var(--border);background:transparent;font-family:'DM Sans',sans-serif;font-size:.95rem;color:var(--ink);outline:none;padding:4px 6px}
+    .blank-input-item input:focus{border-bottom-color:var(--accent)}
 
     /* Textarea */
-    .writing-area {
-      width: 100%; min-height: 160px; padding: 18px 20px;
-      border: 2px solid var(--border); border-radius: var(--r-lg);
-      font-family: 'DM Sans', sans-serif; font-size: 1rem; color: var(--ink);
-      background: var(--surface); outline: none; resize: vertical;
-      transition: border-color .15s; line-height: 1.7;
-    }
-    .writing-area:focus { border-color: var(--accent); }
-    .word-count { font-size: .8rem; color: var(--ink-3); text-align: right; margin-top: 8px; }
-    .word-count .wc-num { font-weight: 600; color: var(--ink-2); }
-    .word-target { color: var(--accent); }
+    .writing-area{width:100%;min-height:150px;padding:18px 20px;border:2px solid var(--border);border-radius:var(--r-lg);font-family:'DM Sans',sans-serif;font-size:1rem;color:var(--ink);background:var(--surface);outline:none;resize:vertical;transition:border-color .15s;line-height:1.75}
+    .writing-area:focus{border-color:var(--accent)}
+    .word-count{font-size:.78rem;color:var(--ink-3);text-align:right;margin-top:6px}
+    .word-count .wc-num{font-weight:600;color:var(--ink-2)}
+    .submit-row{display:flex;gap:12px;margin-top:18px;align-items:center;flex-wrap:wrap}
+    .grading-indicator{display:flex;align-items:center;gap:10px;color:var(--ink-2);font-size:.88rem}
+    .spinner{width:18px;height:18px;border:2.5px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
 
-    .submit-row { display: flex; gap: 12px; margin-top: 20px; align-items: center; }
-    .grading-indicator {
-      display: flex; align-items: center; gap: 10px; color: var(--ink-2); font-size: .9rem;
-    }
-    .spinner {
-      width: 20px; height: 20px; border: 2.5px solid var(--border);
-      border-top-color: var(--accent); border-radius: 50%;
-      animation: spin .7s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    /* RESULT SCREEN */
+    #screen-result{padding-bottom:80px}
+    .score-hero{background:var(--surface);border-radius:var(--r-lg);padding:28px;text-align:center;border:1.5px solid var(--border);box-shadow:var(--shadow-lg);margin-bottom:18px}
+    .score-ring{width:90px;height:90px;border-radius:50%;border:5px solid var(--border);margin:0 auto 14px;display:flex;align-items:center;justify-content:center;font-family:'DM Serif Display',serif;font-size:2rem;position:relative}
+    .score-ring.grade-a{border-color:var(--accent-l)} .score-ring.grade-a::after{border-top-color:var(--accent);border-right-color:var(--accent)}
+    .score-ring.grade-b{border-color:var(--gold-l)} .score-ring.grade-b::after{border-top-color:var(--gold)}
+    .score-ring.grade-c{border-color:var(--warn-l)} .score-ring.grade-c::after{border-top-color:var(--warn)}
+    .score-verdict{font-family:'DM Serif Display',serif;font-size:1.5rem;margin-bottom:6px}
+    .score-comment{font-size:.88rem;color:var(--ink-2);max-width:380px;margin:0 auto}
+    .xp-gained{display:inline-flex;align-items:center;gap:6px;margin-top:14px;background:var(--accent-l);color:var(--accent);padding:7px 16px;border-radius:99px;font-weight:600;font-size:.88rem}
+    .criteria-list{display:flex;flex-direction:column;gap:16px}
+    .crit-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px}
+    .crit-name{font-weight:600;font-size:.88rem}
+    .crit-score{font-size:.82rem;font-weight:600;color:var(--accent)}
+    .crit-bar{height:5px;background:var(--border);border-radius:99px;overflow:hidden}
+    .crit-fill{height:100%;border-radius:99px;transition:width .8s cubic-bezier(.4,0,.2,1)}
+    .fill-a{background:var(--accent)} .fill-b{background:var(--gold)} .fill-c{background:var(--warn)}
+    .crit-desc{font-size:.8rem;color:var(--ink-3);margin-top:4px}
+    .fb-label{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:7px}
+    .dot-label{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+    .dot-green{background:var(--accent)} .dot-orange{background:var(--warn)} .dot-blue{background:var(--blue)} .dot-purple{background:var(--purple)}
+    .fb-item{font-size:.88rem;color:var(--ink-2);padding:9px 13px;border-radius:8px;margin-bottom:6px;line-height:1.55}
+    .fb-positive{background:var(--accent-l)} .fb-improve{background:var(--warn-l)}
+    .example-box{background:var(--bg);border:1.5px dashed var(--border);border-radius:var(--r);padding:18px;font-size:.9rem;color:var(--ink);line-height:1.8;font-style:italic}
 
-    /* ── RESULT SCREEN ── */
-    #screen-result { padding-bottom: 60px; }
-    .result-header { padding: 28px 0 20px; }
-    .score-hero {
-      background: var(--surface); border-radius: var(--r-lg); padding: 32px;
-      text-align: center; border: 1.5px solid var(--border);
-      box-shadow: var(--shadow-lg); margin-bottom: 20px;
-    }
-    .score-ring {
-      width: 100px; height: 100px; border-radius: 50%;
-      border: 6px solid var(--border); margin: 0 auto 16px;
-      display: flex; align-items: center; justify-content: center;
-      font-family: 'DM Serif Display', serif; font-size: 2.2rem; position: relative;
-    }
-    .score-ring::before {
-      content: ''; position: absolute; inset: -6px; border-radius: 50%;
-      border: 6px solid transparent; border-top-color: var(--accent);
-    }
-    .score-ring.grade-a { border-color: var(--accent-l); }
-    .score-ring.grade-a::before { border-top-color: var(--accent); border-right-color: var(--accent); }
-    .score-ring.grade-b { border-color: var(--gold-l); }
-    .score-ring.grade-b::before { border-top-color: var(--gold); }
-    .score-ring.grade-c { border-color: var(--warn-l); }
-    .score-ring.grade-c::before { border-top-color: var(--warn); }
-    .score-label { font-size: .85rem; color: var(--ink-2); margin-bottom: 6px; }
-    .score-verdict { font-family: 'DM Serif Display', serif; font-size: 1.6rem; margin-bottom: 8px; }
-    .score-comment { font-size: .9rem; color: var(--ink-2); max-width: 360px; margin: 0 auto; }
-    .xp-gained {
-      display: inline-flex; align-items: center; gap: 6px; margin-top: 16px;
-      background: var(--accent-l); color: var(--accent);
-      padding: 8px 18px; border-radius: 99px; font-weight: 600; font-size: .9rem;
-    }
+    /* INLINE MARKUP */
+    .annotated-text{font-size:.95rem;line-height:2.1;color:var(--ink);padding:20px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);margin-top:10px}
+    .mark-grammar{background:#fde8e8;border-bottom:2px solid #d94f4f;border-radius:3px;padding:1px 2px;cursor:help}
+    .mark-word{background:var(--gold-l);border-bottom:2px solid var(--gold);border-radius:3px;padding:1px 2px;cursor:help}
+    .mark-structure{background:var(--blue-l);border-bottom:2px solid var(--blue);border-radius:3px;padding:1px 2px;cursor:help}
+    .mark-style{background:var(--purple-l);border-bottom:2px solid var(--purple);border-radius:3px;padding:1px 2px;cursor:help}
+    .markup-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+    .legend-item{display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--ink-2)}
+    .legend-swatch{width:14px;height:14px;border-radius:3px}
+    .mark-tooltip{position:relative}
+    .mark-tooltip:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:.75rem;padding:5px 10px;border-radius:6px;white-space:nowrap;max-width:220px;white-space:normal;z-index:10;text-align:center;line-height:1.4}
 
-    /* Criteria bars */
-    .criteria-list { display: flex; flex-direction: column; gap: 14px; margin: 8px 0; }
-    .criterion { }
-    .crit-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
-    .crit-name { font-weight: 600; font-size: .88rem; }
-    .crit-score { font-size: .82rem; font-weight: 600; color: var(--accent); }
-    .crit-bar { height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
-    .crit-fill { height: 100%; border-radius: 99px; transition: width .8s cubic-bezier(.4,0,.2,1); }
-    .fill-a { background: var(--accent); }
-    .fill-b { background: var(--gold); }
-    .fill-c { background: var(--warn); }
+    /* Sentence comparison table */
+    .compare-wrap{overflow-x:auto}
+    .compare-table{width:100%;border-collapse:collapse;font-size:.84rem}
+    .compare-table th{text-align:left;padding:9px 11px;background:var(--bg);border-bottom:2px solid var(--border);font-weight:600;color:var(--ink-2);font-size:.75rem;text-transform:uppercase;letter-spacing:.06em}
+    .compare-table td{padding:11px;border-bottom:1px solid var(--border);vertical-align:top;line-height:1.55}
+    .compare-table tr:last-child td{border-bottom:none}
+    .user-sent{color:var(--ink)} .model-sent{color:var(--accent);font-style:italic} .sent-note{color:var(--ink-3);font-size:.77rem}
+    .result-actions{display:flex;gap:12px;margin-top:24px;flex-wrap:wrap}
 
-    /* Feedback sections */
-    .feedback-section { margin-bottom: 16px; }
-    .fb-label {
-      font-size: .75rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
-      margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
-    }
-    .fb-label .dot-label { width: 8px; height: 8px; border-radius: 50%; }
-    .fb-label .dot-green { background: var(--accent); }
-    .fb-label .dot-orange { background: var(--warn); }
-    .fb-label .dot-blue { background: #3b6ec9; }
-    .fb-item { font-size: .9rem; color: var(--ink-2); padding: 10px 14px; border-radius: 8px; margin-bottom: 6px; line-height: 1.55; }
-    .fb-positive { background: var(--accent-l); }
-    .fb-improve { background: var(--warn-l); }
+    /* STATS */
+    #screen-stats{padding-bottom:80px}
 
-    /* Example answer */
-    .example-box {
-      background: var(--bg); border: 1.5px dashed var(--border);
-      border-radius: var(--r); padding: 20px; margin-top: 8px;
-      font-size: .9rem; color: var(--ink); line-height: 1.75;
-      font-style: italic;
-    }
+    /* SETTINGS */
+    #screen-settings{padding-bottom:80px}
+    .settings-row{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px}
+    .settings-row .label{font-weight:500;font-size:.9rem}
+    .settings-row .sub{font-size:.78rem;color:var(--ink-3);margin-top:2px}
 
-    /* Sentence comparison */
-    .compare-wrap { overflow-x: auto; }
-    .compare-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
-    .compare-table th {
-      text-align: left; padding: 10px 12px; background: var(--bg);
-      border-bottom: 2px solid var(--border); font-weight: 600; color: var(--ink-2);
-      font-size: .78rem; text-transform: uppercase; letter-spacing: .06em;
-    }
-    .compare-table td { padding: 12px; border-bottom: 1px solid var(--border); vertical-align: top; line-height: 1.55; }
-    .compare-table tr:last-child td { border-bottom: none; }
-    .user-sent { color: var(--ink); }
-    .model-sent { color: var(--accent); font-style: italic; }
-    .sent-note { color: var(--ink-3); font-size: .78rem; }
+    /* NAV */
+    .nav-bottom{position:fixed;bottom:0;left:0;right:0;z-index:40;background:rgba(247,244,239,.96);backdrop-filter:blur(12px);border-top:1px solid var(--border);display:flex;justify-content:center;gap:4px;padding:8px 16px 12px}
+    .nav-btn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 20px;border:none;background:none;cursor:pointer;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.67rem;font-weight:500;color:var(--ink-3);transition:all .15s;min-width:68px}
+    .nav-btn .nav-icon{font-size:1.25rem;transition:transform .15s}
+    .nav-btn.active{color:var(--accent);background:var(--accent-l)}
+    .nav-btn:hover .nav-icon{transform:translateY(-2px)}
 
-    .result-actions { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
+    /* MISC */
+    .divider{height:1px;background:var(--border);margin:22px 0}
+    .empty-state{text-align:center;padding:28px 20px;color:var(--ink-3)}
+    .empty-state .big{font-size:2.2rem;margin-bottom:8px}
+    .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;padding:12px 20px;border-radius:var(--r);font-size:.87rem;font-weight:500;box-shadow:var(--shadow-lg);transition:transform .3s cubic-bezier(.34,1.56,.64,1);z-index:999;white-space:nowrap}
+    .toast.show{transform:translateX(-50%) translateY(0)}
+    .fade-in{animation:fadeIn .35s ease forwards}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    .modal-overlay{display:none;position:fixed;inset:0;background:rgba(26,23,20,.5);z-index:100;align-items:center;justify-content:center;padding:24px}
+    .modal-overlay.open{display:flex}
+    .modal{background:var(--surface);border-radius:var(--r-lg);padding:28px;max-width:460px;width:100%;box-shadow:var(--shadow-lg);animation:fadeIn .25s ease}
+    .modal h3{margin-bottom:10px} .modal p{font-size:.9rem;margin-bottom:18px}
+    .modal-actions{display:flex;gap:10px;justify-content:flex-end}
+    ::-webkit-scrollbar{width:5px} ::-webkit-scrollbar-track{background:transparent} ::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px}
+    @media(max-width:480px){.auth-box{padding:22px}.result-actions{flex-direction:column}}
 
-    /* ── SETTINGS ── */
-    #screen-settings { padding-bottom: 60px; }
-    .settings-section { margin-bottom: 32px; }
-    .settings-section h3 { margin-bottom: 14px; font-size: .95rem; color: var(--ink-2); text-transform: uppercase; letter-spacing: .06em; font-family: 'DM Sans', sans-serif; font-weight: 600; }
-    .settings-row {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 16px 20px; background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--r); margin-bottom: 8px;
-    }
-    .settings-row-info { font-size: .9rem; }
-    .settings-row-info .label { font-weight: 500; }
-    .settings-row-info .sub { font-size: .8rem; color: var(--ink-3); margin-top: 2px; }
-
-    /* Toast */
-    .toast {
-      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px);
-      background: var(--ink); color: #fff; padding: 13px 22px; border-radius: var(--r);
-      font-size: .88rem; font-weight: 500; box-shadow: var(--shadow-lg);
-      transition: transform .3s cubic-bezier(.34,1.56,.64,1); z-index: 999; white-space: nowrap;
-    }
-    .toast.show { transform: translateX(-50%) translateY(0); }
-
-    /* Misc */
-    .divider { height: 1px; background: var(--border); margin: 24px 0; }
-    .empty-state { text-align: center; padding: 32px 20px; color: var(--ink-3); }
-    .empty-state .big { font-size: 2.5rem; margin-bottom: 10px; }
-    .nav-bottom {
-      position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
-      background: rgba(247,244,239,.95); backdrop-filter: blur(12px);
-      border-top: 1px solid var(--border);
-      display: flex; justify-content: center; gap: 4px; padding: 8px 16px 10px;
-    }
-    .nav-btn {
-      display: flex; flex-direction: column; align-items: center; gap: 3px;
-      padding: 8px 20px; border: none; background: none; cursor: pointer; border-radius: 10px;
-      font-family: 'DM Sans', sans-serif; font-size: .68rem; font-weight: 500; color: var(--ink-3);
-      transition: all .15s; min-width: 70px;
-    }
-    .nav-btn .nav-icon { font-size: 1.3rem; transition: transform .15s; }
-    .nav-btn.active { color: var(--accent); background: var(--accent-l); }
-    .nav-btn:hover .nav-icon { transform: translateY(-2px); }
-    .fade-in { animation: fadeIn .35s ease forwards; }
-    @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
-
-    /* modal */
-    .modal-overlay {
-      display:none; position:fixed; inset:0; background:rgba(26,23,20,.5);
-      z-index:100; align-items:center; justify-content:center; padding:24px;
-    }
-    .modal-overlay.open { display:flex; }
-    .modal {
-      background:var(--surface); border-radius:var(--r-lg); padding:32px;
-      max-width:480px; width:100%; box-shadow:var(--shadow-lg);
-      animation: fadeIn .25s ease;
-    }
-    .modal h3 { margin-bottom:12px; }
-    .modal p { font-size:.9rem; margin-bottom:20px; }
-    .modal-actions { display:flex; gap:12px; justify-content:flex-end; }
-
-    /* scrollbar */
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--ink-3); }
-
-    @media (max-width: 480px) {
-      .auth-box { padding: 24px; }
-      .result-actions { flex-direction: column; }
-    }
+    /* Loading state for AI prompt generation */
+    .generating-prompt{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 20px;gap:14px;color:var(--ink-2);font-size:.9rem}
+    .gen-spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
   </style>
 </head>
 <body>
 
-<!-- ════ WELCOME SCREEN ════ -->
+<!-- ══ WELCOME ══ -->
 <div id="screen-welcome" class="screen active">
   <div class="container" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:0">
-    <div style="margin-bottom:40px;text-align:center">
-      <div class="welcome-badge">✍️ Lukiotaso</div>
-      <h1 class="welcome-title">Kirjoita</h1>
-      <p class="welcome-sub">Harjoittele esseekirjoittamista älykkään palautteen avulla. Kehity joka päivä.</p>
+    <div style="margin-bottom:36px;text-align:center">
+      <div class="welcome-badge">✍️ Lukiotaso · YTL-kriteerit</div>
+      <h1 style="margin-bottom:14px">Kirjoita</h1>
+      <p style="font-size:1.05rem;max-width:420px;margin:0 auto">Harjoittele suomen kielen esseekirjoittamista. Tekoälypohjainen arviointi YTL:n kriteerien mukaan.</p>
     </div>
     <div class="auth-box">
       <div class="tab-row">
         <button class="tab-btn active" onclick="switchTab('login')">Kirjaudu sisään</button>
         <button class="tab-btn" onclick="switchTab('register')">Luo tili</button>
       </div>
-
-      <!-- LOGIN -->
       <div id="tab-login">
-        <div class="field-group">
-          <label>Käyttäjäkoodisi</label>
-          <input id="login-code" type="text" placeholder="esim. KIRJA-4829" maxlength="12" autocomplete="off" spellcheck="false" />
-        </div>
-        <div class="api-note">
-          💡 Tarvitset ilmaisen <a href="https://console.groq.com/keys" target="_blank">Groq API -avaimen</a> tekoälypohjaista palautetta varten.
-        </div>
-        <div class="field-group">
-          <label>Groq API -avain</label>
-          <input id="login-apikey" type="password" placeholder="gsk_..." autocomplete="off" />
-        </div>
+        <div class="field-group"><label>Käyttäjäkoodisi</label><input id="login-code" type="text" placeholder="esim. KIRJA-4829" maxlength="12" autocomplete="off" spellcheck="false"/></div>
+        <div class="api-note">💡 Tarvitset ilmaisen <a href="https://console.groq.com/keys" target="_blank">Groq API -avaimen</a> tekoälytoimintoja varten.</div>
+        <div class="field-group"><label>Groq API -avain</label><input id="login-apikey" type="password" placeholder="gsk_..." autocomplete="off"/></div>
         <button class="btn btn-primary btn-full" onclick="handleLogin()">Kirjaudu sisään</button>
       </div>
-
-      <!-- REGISTER -->
       <div id="tab-register" style="display:none">
-        <div class="field-group">
-          <label>Lempinimi (näytetään vain sinulle)</label>
-          <input id="reg-name" type="text" placeholder="esim. Axel" maxlength="20" />
-        </div>
-        <div class="api-note">
-          💡 Hae ilmainen <a href="https://console.groq.com/keys" target="_blank">Groq API -avain</a> osoitteesta console.groq.com — se on täysin ilmainen.
-        </div>
-        <div class="field-group">
-          <label>Groq API -avain</label>
-          <input id="reg-apikey" type="password" placeholder="gsk_..." autocomplete="off" />
-        </div>
+        <div class="field-group"><label>Lempinimi</label><input id="reg-name" type="text" placeholder="esim. Axel" maxlength="20"/></div>
+        <div class="api-note">💡 Hae ilmainen <a href="https://console.groq.com/keys" target="_blank">Groq API -avain</a> — täysin ilmainen.</div>
+        <div class="field-group"><label>Groq API -avain</label><input id="reg-apikey" type="password" placeholder="gsk_..." autocomplete="off"/></div>
         <div id="new-code-display" style="display:none">
-          <div class="code-display">
-            <div class="code-val" id="generated-code"></div>
-            <p>⬆️ Tallenna tämä koodi! Sillä kirjaudut sisään jatkossa.</p>
-          </div>
+          <div class="code-display"><div class="code-val" id="generated-code"></div><p style="font-size:.82rem;margin-top:6px">⬆️ Tallenna tämä koodi! Sillä kirjaudut jatkossa.</p></div>
         </div>
         <button class="btn btn-primary btn-full" id="reg-btn" onclick="handleRegister()">Luo tili & näytä koodi</button>
         <button class="btn btn-secondary btn-full" id="continue-btn" style="display:none;margin-top:10px" onclick="finishRegister()">Jatka sovellukseen →</button>
       </div>
     </div>
-    <p style="font-size:.78rem;color:var(--ink-3);margin-top:20px;text-align:center">
-      Tiedot tallennetaan paikallisesti tässä selaimessa.<br/>Ei pilvipalvelua — täysin yksityinen.
-    </p>
+    <p style="font-size:.76rem;color:var(--ink-3);margin-top:18px;text-align:center">Tiedot tallennetaan paikallisesti selaimessasi. Täysin yksityinen.</p>
   </div>
 </div>
 
-<!-- ════ TOPBAR (shared) ════ -->
+<!-- ══ TOPBAR ══ -->
 <div id="app-topbar" style="display:none">
   <div class="topbar">
     <div class="topbar-inner">
       <span class="logo">Kirjoita</span>
       <div class="stats-row">
-        <div class="stat-chip"><span class="icon">🔥</span> <span class="val" id="topbar-streak">0</span></div>
-        <div class="stat-chip"><span class="icon">⭐</span> <span class="val" id="topbar-xp">0</span> XP</div>
+        <div class="stat-chip">🔥 <span class="val" id="topbar-streak">0</span></div>
+        <div class="stat-chip">⭐ <span class="val" id="topbar-xp">0</span> XP</div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ════ HOME SCREEN ════ -->
+<!-- ══ HOME ══ -->
 <div id="screen-home" class="screen">
   <div class="container">
     <div class="home-hero">
       <div>
-        <p style="font-size:.85rem;color:var(--ink-2);margin-bottom:4px">Hei, <span id="hero-name">kirjoittaja</span> 👋</p>
+        <p style="font-size:.83rem;color:var(--ink-2);margin-bottom:3px">Hei, <span id="hero-name">kirjoittaja</span> 👋</p>
         <h2 id="hero-tagline">Mitä kirjoitetaan tänään?</h2>
       </div>
-      <div class="level-badge">
-        <span class="lnum" id="hero-level">1</span>
-        <span class="ltxt">taso</span>
-      </div>
+      <div class="level-badge"><span class="lnum" id="hero-level">1</span><span class="ltxt">taso</span></div>
     </div>
-    <div class="xp-bar-wrap" style="margin-bottom:8px">
-      <div class="xp-bar-fill" id="hero-xp-bar" style="width:0%"></div>
-    </div>
-    <p class="xp-label" style="margin-bottom:32px">
-      <span id="xp-label-text">0 / 100 XP tasoon 2</span>
-      <span id="streak-label">🔥 <span id="streak-days">0</span> päivän putki</span>
+    <div class="xp-bar-wrap" style="margin-bottom:7px"><div class="xp-bar-fill" id="hero-xp-bar" style="width:0%"></div></div>
+    <p style="font-size:.78rem;color:var(--ink-2);display:flex;justify-content:space-between;margin-bottom:28px">
+      <span id="xp-label-text">0 / 100 XP</span><span>🔥 <span id="streak-days">0</span> päivän putki</span>
     </p>
-
     <p class="section-title">Harjoitukset</p>
     <div class="exercises-grid" id="exercises-list"></div>
-
     <div class="divider"></div>
     <p class="section-title">Viimeisimmät suoritukset</p>
     <div id="history-list" class="history-list"></div>
   </div>
-  <div style="height:72px"></div>
+  <div style="height:80px"></div>
 </div>
 
-<!-- ════ EXERCISE SCREEN ════ -->
+<!-- ══ EXERCISE ══ -->
 <div id="screen-exercise" class="screen">
   <div class="container">
     <div class="ex-header">
       <button class="back-btn" onclick="goHome()">←</button>
       <div>
-        <div class="ex-header-title" id="ex-screen-title">Harjoitus</div>
-        <div style="font-size:.8rem;color:var(--ink-3)" id="ex-screen-sub"></div>
+        <div style="font-family:'DM Serif Display',serif;font-size:1.2rem" id="ex-screen-title">Harjoitus</div>
+        <div style="font-size:.78rem;color:var(--ink-3)" id="ex-screen-sub"></div>
       </div>
     </div>
     <div class="progress-dots" id="progress-dots"></div>
-
-    <div class="prompt-card fade-in" id="prompt-card">
-      <div class="prompt-type" id="prompt-type-label">Aihe</div>
-      <div class="prompt-text" id="prompt-text">Lataa...</div>
-      <div class="prompt-hint" id="prompt-hint" style="display:none"></div>
-    </div>
-
-    <div class="tips-row" id="tips-row"></div>
-
-    <textarea class="writing-area" id="writing-input" placeholder="Kirjoita vastauksesi tähän..."></textarea>
-    <div class="word-count">
-      <span class="wc-num" id="word-count-num">0</span> sanaa
-      <span class="word-target" id="word-target-text"></span>
-    </div>
-
+    <div id="exercise-content"></div>
     <div class="submit-row">
       <button class="btn btn-primary" id="submit-btn" onclick="submitAnswer()">Arvioi vastaus ✦</button>
-      <div class="grading-indicator" id="grading-indicator" style="display:none">
-        <div class="spinner"></div> Arvioidaan…
-      </div>
+      <div class="grading-indicator" id="grading-indicator" style="display:none"><div class="spinner"></div> Arvioidaan…</div>
     </div>
   </div>
-  <div style="height:72px"></div>
+  <div style="height:80px"></div>
 </div>
 
-<!-- ════ RESULT SCREEN ════ -->
+<!-- ══ RESULT ══ -->
 <div id="screen-result" class="screen">
   <div class="container">
-    <div class="result-header">
-      <button class="back-btn" onclick="goHome()" style="margin-bottom:12px">← Etusivu</button>
+    <div style="padding:24px 0 16px;display:flex;align-items:center;gap:10px">
+      <button class="back-btn" onclick="goHome()">←</button>
       <h2>Arviointi</h2>
     </div>
 
     <div class="score-hero fade-in">
-      <div class="score-ring" id="result-ring">
-        <span id="result-score-num">–</span>
-      </div>
-      <div class="score-label">Kokonaispisteet 10:stä</div>
+      <div class="score-ring" id="result-ring"><span id="result-score-num">–</span></div>
+      <div style="font-size:.82rem;color:var(--ink-3);margin-bottom:5px">Kokonaispisteet 10:stä</div>
       <div class="score-verdict" id="result-verdict"></div>
       <div class="score-comment" id="result-comment"></div>
       <div class="xp-gained" id="xp-gained-chip">+0 XP</div>
     </div>
 
-    <div class="card fade-in" style="animation-delay:.1s">
-      <h3 style="margin-bottom:20px">Arviointikriteerit</h3>
+    <!-- YTL criteria -->
+    <div class="card fade-in" style="animation-delay:.08s">
+      <h3 style="margin-bottom:18px">YTL-arviointikriteerit</h3>
       <div class="criteria-list" id="criteria-list"></div>
     </div>
 
-    <div class="card fade-in" style="animation-delay:.15s">
+    <!-- Inline annotated text -->
+    <div class="card fade-in" style="animation-delay:.12s">
+      <h3 style="margin-bottom:6px">Tekstisi kommentoituna</h3>
+      <p style="font-size:.82rem;margin-bottom:4px">Korostetut kohdat kaipaavat huomiota:</p>
+      <div class="markup-legend">
+        <div class="legend-item"><div class="legend-swatch" style="background:#fde8e8;border-bottom:2px solid #d94f4f"></div> Kielioppi</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--gold-l);border-bottom:2px solid var(--gold)"></div> Sanasto</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--blue-l);border-bottom:2px solid var(--blue)"></div> Rakenne</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--purple-l);border-bottom:2px solid var(--purple)"></div> Tyyli</div>
+      </div>
+      <div class="annotated-text" id="annotated-text"></div>
+    </div>
+
+    <!-- Feedback -->
+    <div class="card fade-in" style="animation-delay:.16s">
       <h3 style="margin-bottom:16px">Palaute</h3>
-      <div class="feedback-section">
+      <div style="margin-bottom:16px">
         <div class="fb-label"><span class="dot-label dot-green"></span> Vahvuudet</div>
         <div id="fb-strengths"></div>
       </div>
-      <div class="feedback-section">
+      <div>
         <div class="fb-label"><span class="dot-label dot-orange"></span> Kehityskohteet</div>
         <div id="fb-improvements"></div>
       </div>
     </div>
 
-    <div class="card fade-in" style="animation-delay:.2s">
-      <h3 style="margin-bottom:14px">Esimerkkivastaus</h3>
-      <p style="font-size:.82rem;margin-bottom:12px">Näin olisi voinut vastata erinomaisesti:</p>
+    <!-- Example answer -->
+    <div class="card fade-in" style="animation-delay:.20s">
+      <h3 style="margin-bottom:12px">Esimerkkivastaus</h3>
+      <p style="font-size:.82rem;margin-bottom:12px">Näin tämä tehtävä olisi voitu kirjoittaa erinomaisesti:</p>
       <div class="example-box" id="example-answer"></div>
     </div>
 
-    <div class="card fade-in" style="animation-delay:.25s" id="comparison-card">
-      <h3 style="margin-bottom:14px">Lausevertailu</h3>
-      <p style="font-size:.82rem;margin-bottom:14px">Sinun lauseesi vs. esimerkkilauseet:</p>
+    <!-- Sentence comparison -->
+    <div class="card fade-in" id="comparison-card" style="animation-delay:.24s">
+      <h3 style="margin-bottom:12px">Lausevertailu</h3>
+      <p style="font-size:.82rem;margin-bottom:14px">Sinun lauseesi → paranneltu versio:</p>
       <div class="compare-wrap">
         <table class="compare-table">
-          <thead><tr><th>Sinun lauseesi</th><th>Erimerkkilause</th><th>Vinkki</th></tr></thead>
+          <thead><tr><th>Sinun lauseesi</th><th>Paranneltu versio</th><th>Miksi?</th></tr></thead>
           <tbody id="comparison-tbody"></tbody>
         </table>
       </div>
@@ -634,267 +382,151 @@
       <button class="btn btn-secondary" onclick="retryExercise()">↺ Yritä uudelleen</button>
     </div>
   </div>
-  <div style="height:72px"></div>
+  <div style="height:80px"></div>
 </div>
 
-<!-- ════ STATS SCREEN ════ -->
+<!-- ══ STATS ══ -->
 <div id="screen-stats" class="screen">
-  <div class="container" style="padding-top:32px">
-    <h2 style="margin-bottom:24px">Tilastot</h2>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px">
-      <div class="card" style="text-align:center;padding:20px">
-        <div style="font-family:'DM Serif Display',serif;font-size:2.2rem;color:var(--accent)" id="stat-total-xp">0</div>
-        <div style="font-size:.82rem;color:var(--ink-3);margin-top:4px">Yhteensä XP</div>
-      </div>
-      <div class="card" style="text-align:center;padding:20px">
-        <div style="font-family:'DM Serif Display',serif;font-size:2.2rem;color:var(--accent)" id="stat-exercises">0</div>
-        <div style="font-size:.82rem;color:var(--ink-3);margin-top:4px">Harjoitusta tehty</div>
-      </div>
-      <div class="card" style="text-align:center;padding:20px">
-        <div style="font-family:'DM Serif Display',serif;font-size:2.2rem;color:var(--accent)" id="stat-streak">0</div>
-        <div style="font-size:.82rem;color:var(--ink-3);margin-top:4px">Päivän putki</div>
-      </div>
-      <div class="card" style="text-align:center;padding:20px">
-        <div style="font-family:'DM Serif Display',serif;font-size:2.2rem;color:var(--accent)" id="stat-avg">–</div>
-        <div style="font-size:.82rem;color:var(--ink-3);margin-top:4px">Keskim. pisteet</div>
-      </div>
+  <div class="container" style="padding-top:28px">
+    <h2 style="margin-bottom:22px">Tilastot</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:22px">
+      <div class="card" style="text-align:center;padding:18px"><div style="font-family:'DM Serif Display',serif;font-size:2rem;color:var(--accent)" id="stat-total-xp">0</div><div style="font-size:.78rem;color:var(--ink-3);margin-top:3px">Yhteensä XP</div></div>
+      <div class="card" style="text-align:center;padding:18px"><div style="font-family:'DM Serif Display',serif;font-size:2rem;color:var(--accent)" id="stat-exercises">0</div><div style="font-size:.78rem;color:var(--ink-3);margin-top:3px">Harjoitusta</div></div>
+      <div class="card" style="text-align:center;padding:18px"><div style="font-family:'DM Serif Display',serif;font-size:2rem;color:var(--accent)" id="stat-streak">0</div><div style="font-size:.78rem;color:var(--ink-3);margin-top:3px">Päivän putki</div></div>
+      <div class="card" style="text-align:center;padding:18px"><div style="font-family:'DM Serif Display',serif;font-size:2rem;color:var(--accent)" id="stat-avg">–</div><div style="font-size:.78rem;color:var(--ink-3);margin-top:3px">Keskim. pisteet</div></div>
     </div>
-    <h3 style="margin-bottom:14px">Viimeiset 10 suoritusta</h3>
+    <h3 style="margin-bottom:12px">Viimeiset suoritukset</h3>
     <div id="stats-history-list" class="history-list"></div>
   </div>
-  <div style="height:72px"></div>
+  <div style="height:80px"></div>
 </div>
 
-<!-- ════ SETTINGS SCREEN ════ -->
+<!-- ══ SETTINGS ══ -->
 <div id="screen-settings" class="screen">
-  <div class="container" style="padding-top:32px">
-    <h2 style="margin-bottom:24px">Asetukset</h2>
-    <div class="settings-section">
-      <h3>Tili</h3>
-      <div class="settings-row">
-        <div class="settings-row-info">
-          <div class="label">Käyttäjäkoodisi</div>
-          <div class="sub" id="settings-code">–</div>
-        </div>
-        <button class="btn btn-secondary btn-sm" onclick="copyCode()">Kopioi</button>
-      </div>
-      <div class="settings-row">
-        <div class="settings-row-info">
-          <div class="label">Nimi</div>
-          <div class="sub" id="settings-name">–</div>
-        </div>
-      </div>
+  <div class="container" style="padding-top:28px">
+    <h2 style="margin-bottom:22px">Asetukset</h2>
+    <div style="margin-bottom:24px">
+      <p style="font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-bottom:10px">Tili</p>
+      <div class="settings-row"><div><div class="label">Käyttäjäkoodisi</div><div class="sub" id="settings-code">–</div></div><button class="btn btn-secondary btn-sm" onclick="copyCode()">Kopioi</button></div>
+      <div class="settings-row"><div><div class="label">Nimi</div><div class="sub" id="settings-name">–</div></div></div>
     </div>
-    <div class="settings-section">
-      <h3>API-avain</h3>
-      <div class="field-group">
-        <label>Groq API -avain</label>
-        <input id="settings-apikey" type="password" placeholder="gsk_..." />
-      </div>
-      <button class="btn btn-secondary btn-sm" onclick="saveApiKey()">Tallenna avain</button>
+    <div style="margin-bottom:24px">
+      <p style="font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-bottom:10px">API-avain</p>
+      <div class="field-group"><label>Groq API -avain</label><input id="settings-apikey" type="password" placeholder="gsk_..."/></div>
+      <button class="btn btn-secondary btn-sm" onclick="saveApiKey()">Tallenna</button>
     </div>
-    <div class="settings-section">
-      <h3>Tiedot</h3>
-      <div class="settings-row">
-        <div class="settings-row-info">
-          <div class="label">Tyhjennä harjoitushistoria</div>
-          <div class="sub">Palauttaa sinut tasolle 1</div>
-        </div>
-        <button class="btn btn-secondary btn-sm" onclick="confirmReset()" style="color:var(--warn);border-color:var(--warn)">Tyhjennä</button>
-      </div>
+    <div style="margin-bottom:24px">
+      <p style="font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-bottom:10px">Tiedot</p>
+      <div class="settings-row"><div><div class="label">Tyhjennä historia</div><div class="sub">Palauttaa tasolle 1</div></div><button class="btn btn-secondary btn-sm" onclick="confirmReset()" style="color:var(--warn);border-color:var(--warn)">Tyhjennä</button></div>
     </div>
-    <button class="btn btn-ghost" onclick="logout()" style="margin-top:8px;color:var(--warn)">Kirjaudu ulos</button>
+    <button class="btn btn-ghost" onclick="logout()" style="color:var(--warn)">Kirjaudu ulos</button>
   </div>
-  <div style="height:72px"></div>
+  <div style="height:80px"></div>
 </div>
 
-<!-- ════ NAV ════ -->
+<!-- ══ NAV ══ -->
 <nav class="nav-bottom" id="app-nav" style="display:none">
-  <button class="nav-btn active" id="nav-home" onclick="showScreen('home')">
-    <span class="nav-icon">🏠</span><span>Koti</span>
-  </button>
-  <button class="nav-btn" id="nav-stats" onclick="showScreen('stats')">
-    <span class="nav-icon">📊</span><span>Tilastot</span>
-  </button>
-  <button class="nav-btn" id="nav-settings" onclick="showScreen('settings')">
-    <span class="nav-icon">⚙️</span><span>Asetukset</span>
-  </button>
+  <button class="nav-btn active" id="nav-home" onclick="showScreen('home')"><span class="nav-icon">🏠</span><span>Koti</span></button>
+  <button class="nav-btn" id="nav-stats" onclick="showScreen('stats')"><span class="nav-icon">📊</span><span>Tilastot</span></button>
+  <button class="nav-btn" id="nav-settings" onclick="showScreen('settings')"><span class="nav-icon">⚙️</span><span>Asetukset</span></button>
 </nav>
 
-<!-- ════ TOAST ════ -->
 <div class="toast" id="toast"></div>
-
-<!-- ════ RESET MODAL ════ -->
 <div class="modal-overlay" id="reset-modal">
-  <div class="modal">
-    <h3>Tyhjennä historia?</h3>
-    <p>Tämä poistaa kaikki harjoitukset ja palauttaa sinut tasolle 1. Käyttäjäkoodisi säilyy.</p>
-    <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="closeModal()">Peruuta</button>
-      <button class="btn btn-primary" style="background:var(--warn)" onclick="doReset()">Tyhjennä</button>
-    </div>
-  </div>
+  <div class="modal"><h3>Tyhjennä historia?</h3><p>Poistaa kaikki harjoitukset ja palauttaa sinut tasolle 1. Koodisi säilyy.</p><div class="modal-actions"><button class="btn btn-secondary" onclick="closeModal()">Peruuta</button><button class="btn btn-primary" style="background:var(--warn)" onclick="doReset()">Tyhjennä</button></div></div>
 </div>
 
 <script>
-/* ═══════════════════════════════════════════════
-   DATA & CONSTANTS
-═══════════════════════════════════════════════ */
-const STORE_PREFIX = 'kirjoita_';
+/* ═══════════════════════════════════════
+   CONSTANTS
+═══════════════════════════════════════ */
+const STORE_PREFIX = 'kirjoita2_';
 const LEVELS = [0,100,250,450,700,1000,1400,1900,2500,3200,4000];
 
-const EXERCISE_TYPES = [
-  {
-    id: 'sentence',
-    title: 'Lauseharjoitus',
-    icon: '✍️',
-    color: '#E8F2EC',
-    desc: 'Kirjoita 2–3 lausetta annetusta aiheesta',
-    xpBase: 20,
-    minLevel: 0,
-    wordMin: 15, wordMax: 50,
-    rounds: 3,
-  },
-  {
-    id: 'paragraph',
-    title: 'Kappalekoulutus',
-    icon: '📝',
-    color: '#FDF8E8',
-    desc: 'Kirjoita kappale (5–8 lausetta)',
-    xpBase: 40,
-    minLevel: 2,
-    wordMin: 50, wordMax: 120,
-    rounds: 3,
-  },
-  {
-    id: 'argument',
-    title: 'Argumentaatio',
-    icon: '⚖️',
-    color: '#FDF0E8',
-    desc: 'Esitä ja perustele näkemyksesi',
-    xpBase: 60,
-    minLevel: 4,
-    wordMin: 80, wordMax: 200,
-    rounds: 3,
-  },
-  {
-    id: 'intro',
-    title: 'Johdantoharjoitus',
-    icon: '🎯',
-    color: '#EAF0FC',
-    desc: 'Kirjoita esseen johdanto',
-    xpBase: 80,
-    minLevel: 6,
-    wordMin: 100, wordMax: 250,
-    rounds: 2,
-  },
+// YTL criteria keys used in grading prompt
+const YTL_CRITERIA = [
+  { key:'sisalto',   name:'Sisällön hallinta',          desc:'Aiheen käsittely, ideoiden rikkaus ja relevanssi' },
+  { key:'rakenne',   name:'Tekstin rakenne',             desc:'Johdanto, kehittely, päätös, koheesio, siirtymät' },
+  { key:'argumentti',name:'Argumentaatio',               desc:'Väitteiden perustelu, kriittinen ajattelu, näkökulmien monipuolisuus' },
+  { key:'sanasto',   name:'Sanasto ja tyyli',            desc:'Sanaston rikkaus, rekisterin hallinta, ilmaisun täsmällisyys' },
+  { key:'kieliasu',  name:'Kieliasu',                    desc:'Oikeinkirjoitus, välimerkit, lauserakenteet, kielioppi' },
 ];
 
-// Prompt banks
-const PROMPTS = {
-  sentence: [
-    { text: "Teknologia on muuttanut nuorten sosiaalista elämää.", hint: "Pohdi sekä myönteisiä että kielteisiä vaikutuksia.", tips: ["Käytä konkreettisia esimerkkejä","Vältä aloittamasta lausetta pronominilla 'Se'"] },
-    { text: "Ilmastonmuutos on aikamme suurin haaste.", hint: "Kerro miksi se on tärkeä juuri nyt.", tips: ["Käytä vahvoja verbejä","Lisää tilasto tai fakta"] },
-    { text: "Lukeminen kehittää ihmistä monipuolisesti.", hint: "Millä tavoilla lukeminen auttaa?", tips: ["Perustele väitteesi","Käytä kausaalisia lauseita (koska, siksi)"] },
-    { text: "Kaupunkielämä ja maaseutuelämä eroavat merkittävästi toisistaan.", hint: "Mainitse ainakin kaksi selkeää eroa.", tips: ["Vertailurakenne: 'kun taas', 'sen sijaan'","Ole täsmällinen"] },
-    { text: "Urheilu opettaa nuorille tärkeitä elämäntaitoja.", hint: "Mitä taitoja ja miten?", tips: ["Konkretisoi esimerkeillä","Käytä nominalisaatioita"] },
-    { text: "Sosiaalinen media vaikuttaa nuorten minäkuvaan.", hint: "Mieti vaikutuksen mekanismia.", tips: ["Syy-seuraus -rakenne","Vältä kliseitä"] },
-    { text: "Äidinkielen oppiminen on elinikäinen prosessi.", hint: "Pohdi mitä tarkoittaa 'oppia' kieltä.", tips: ["Abstrakti ajattelu","Määrittele käsitteet"] },
-    { text: "Ruoanlaitto on enemmän kuin pelkkä taito.", hint: "Mieti kulttuurisia ja sosiaalisia ulottuvuuksia.", tips: ["Laajenna näkökulmaa","Käytä metaforia"] },
-  ],
-  paragraph: [
-    { text: "Kirjoita kappale aiheesta: Nuorten mielenterveys yhteiskunnallisena kysymyksenä.", hint: "Aloita aihetta esittelevällä virkkeellä. Kehittele ajatusta 3–5 lauseella. Päätä yhteenvetoon.", tips: ["Kappalerakenne: aihe → kehittely → päätös","Käytä siirtymäilmaisuja: lisäksi, kuitenkin, toisaalta"] },
-    { text: "Kirjoita kappale aiheesta: Digitalisaation vaikutus opiskeluun.", hint: "Esittele konkreettisia muutoksia ja arvioi niitä.", tips: ["Monipuolinen sanasto","Vältä toistoa — käytä synonyymejä"] },
-    { text: "Kirjoita kappale aiheesta: Tasa-arvo suomalaisessa koulutusjärjestelmässä.", hint: "Onko tasa-arvo toteutunut? Millä perustein?", tips: ["Kriittinen näkökulma","Nominilausekkeet lyhentävät tekstiä"] },
-    { text: "Kirjoita kappale aiheesta: Työn merkitys ihmisen identiteetille.", hint: "Pohdi työn asemaa elämässä ja identiteetin rakentumisessa.", tips: ["Filosofinen ote","Käytä konditionaalia: 'jos... niin'"] },
-    { text: "Kirjoita kappale aiheesta: Luonnon merkitys kaupunkilaisen hyvinvoinnille.", hint: "Yhdistä tutkimustieto omiin havaintoihisi.", tips: ["Passiivin käyttö asiatekstissä","Rakenna argumentteja"] },
-  ],
-  argument: [
-    { text: "Pitäisikö koulupäivät aloittaa myöhemmin teini-ikäisille? Perustele kantasi.", hint: "Esitä selkeä kanta, anna kolme perustetta, käsittele vastaväite.", tips: ["Väiterakenne: 'Katson, että...' / 'Tämän puolesta puhuu...'","Vastaväitteen käsittely vahvistaa argumenttia","Päätä vahvaan johtopäätökseen"] },
-    { text: "Onko sosiaalisen median käytölle asetettava ikäraja? Argumentoi puolesta tai vastaan.", hint: "Ota selkeä kanta. Käytä konkreettisia todisteita.", tips: ["Retoriset kysymykset","Vetoaminen arvoihin vs. faktoihin"] },
-    { text: "Tulisiko yliopisto-opetus olla maksutonta kaikille EU-kansalaisille? Perustele.", hint: "Yhteiskunnallinen argumentaatio — pohdi sekä tasa-arvoa että taloudellisia realiteetteja.", tips: ["Laajenna näkökulma kansallisesta globaaliin","Myönnytyksen rakenne: 'Vaikka... kuitenkin...'"] },
-    { text: "Onko patrioottisuus hyve vai este kehitykselle?", hint: "Määrittele patrioottisuus ensin. Tee sitten analyyttinen argumentti.", tips: ["Käsitteen määrittely on oleellista","Esimerkit historiasta vahvistavat"] },
-  ],
-  intro: [
-    { text: "Kirjoita johdanto esseeseen aiheesta: 'Identiteetti digitaalisessa aikakaudessa'.", hint: "Johdannon tulee: herättää lukijan kiinnostus, esittää aihe, johtaa lukija esseen teemaan. Ei liian suoria väitteitä vielä.", tips: ["Aloita koukulla: kysymys, sitaatti tai yllättävä fakta","Taustoita aihe lyhyesti","Päätä teesiin tai ohjaavaan kysymykseen","Pituus: 100–150 sanaa"] },
-    { text: "Kirjoita johdanto esseeseen aiheesta: 'Yksinäisyys yhteisöllisessä yhteiskunnassa'.", hint: "Luo jännite ilmiön ja odotuksen välille jo johdannossa.", tips: ["Paradoksi on hyvä aloitusväline","Siirry yleisestä erityiseen","Vältä kliseitä kuten 'Nykymaailmassa...'"] },
-  ],
-};
+// Exercise type definitions — prompts are AI-generated on the fly
+const EXERCISE_TYPES = [
+  { id:'kirjoita',      title:'Vapaa kirjoitus',         icon:'✍️',  color:'#E8F2EC', desc:'Kirjoita vastaus annettuun aiheeseen',         xpBase:30,  minLevel:0  },
+  { id:'tayta_aukot',   title:'Sanaston rikastus',       icon:'🔤',  color:'#FDF8E8', desc:'Korvaa tavalliset sanat rikkaammilla ilmaisuilla',xpBase:25, minLevel:0  },
+  { id:'muotoile',      title:'Muotoile uudelleen',      icon:'🔄',  color:'#FDF0E8', desc:'Muuta arkikielinen lause asiatyyliseksi',       xpBase:20,  minLevel:0  },
+  { id:'jarjesta',      title:'Järjestä kappale',        icon:'📋',  color:'#EAF0FC', desc:'Järjestä sekaisin menneet lauseet loogiseksi',  xpBase:20,  minLevel:1  },
+  { id:'korjaa',        title:'Korjaa virheet',          icon:'🔍',  color:'#F3EEFB', desc:'Etsi ja korjaa tekstin kielioppivirheet',       xpBase:25,  minLevel:1  },
+  { id:'siirtymä',      title:'Lisää siirtymä',          icon:'🔗',  color:'#E8F2EC', desc:'Yhdistä kaksi lausetta sopivalla siirtymällä',  xpBase:20,  minLevel:1  },
+  { id:'argumentoi',    title:'Argumentaatioharjoitus',  icon:'⚖️',  color:'#FDF0E8', desc:'Esitä ja perustele kantasi annettuun väitteeseen',xpBase:45, minLevel:2  },
+  { id:'johdanto',      title:'Kirjoita johdanto',       icon:'🎯',  color:'#FDF8E8', desc:'Kirjoita koukuttava esseen johdanto',           xpBase:40,  minLevel:2  },
+  { id:'paatos',        title:'Kirjoita päätös',         icon:'🏁',  color:'#E8F2EC', desc:'Kirjoita yhteenvetoa tekevä esseen päätös',     xpBase:40,  minLevel:3  },
+  { id:'luku_vastaus',  title:'Lukutaidon vastaus',      icon:'📖',  color:'#EAF0FC', desc:'Analysoi annettu teksti ja kirjoita vastaus',   xpBase:55,  minLevel:3  },
+  { id:'luku_viittaus', title:'Viittaaminen',            icon:'📎',  color:'#F3EEFB', desc:'Harjoittele tekstiin viittaamista ja lainaamista',xpBase:40, minLevel:3  },
+  { id:'vertailu',      title:'Vertaileva kirjoitus',    icon:'⚡',  color:'#FDF0E8', desc:'Vertaile kahta näkökulmaa tai ilmiötä',         xpBase:50,  minLevel:4  },
+  { id:'tiivistelmä',   title:'Tiivistelmä',             icon:'📝',  color:'#E8F2EC', desc:'Tiivistä annettu teksti asiatyylistä',          xpBase:45,  minLevel:4  },
+  { id:'pohdinta',      title:'Pohdintakirjoitus',       icon:'🧠',  color:'#FDF8E8', desc:'Syvällinen pohdinta yhteiskunnallisesta aiheesta',xpBase:60, minLevel:5  },
+];
 
-/* ═══════════════════════════════════════════════
+/* ═══════════════════════════════════════
    STATE
-═══════════════════════════════════════════════ */
+═══════════════════════════════════════ */
 let currentUser = null;
-let currentExercise = null; // { type, prompts[], currentRound, scores[] }
-let currentPrompt = null;
+let currentExercise = null; // { typeDef, generatedData, round, totalRounds, scores[] }
 let lastResult = null;
 
-/* ═══════════════════════════════════════════════
-   LOCAL STORAGE HELPERS
-═══════════════════════════════════════════════ */
+/* ═══════════════════════════════════════
+   STORAGE
+═══════════════════════════════════════ */
 function saveUser() {
   if (!currentUser) return;
   localStorage.setItem(STORE_PREFIX + currentUser.code, JSON.stringify(currentUser));
 }
-
 function loadUser(code) {
   const raw = localStorage.getItem(STORE_PREFIX + code.toUpperCase().trim());
   return raw ? JSON.parse(raw) : null;
 }
-
 function generateCode() {
-  const words = ['KIRJA','TARINA','SANA','ESSEE','TEKSTI','VIESTI','LAULU','RUNO','KIRJE'];
-  const w = words[Math.floor(Math.random() * words.length)];
-  const n = Math.floor(1000 + Math.random() * 9000);
-  return `${w}-${n}`;
+  const w = ['KIRJA','TARINA','SANA','ESSEE','TEKSTI','LAULU','RUNO','KIRJE','TEOS'][Math.floor(Math.random()*9)];
+  return `${w}-${Math.floor(1000+Math.random()*9000)}`;
 }
 
-/* ═══════════════════════════════════════════════
+/* ═══════════════════════════════════════
    AUTH
-═══════════════════════════════════════════════ */
+═══════════════════════════════════════ */
 function switchTab(tab) {
-  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', (i===0 && tab==='login') || (i===1 && tab==='register')));
-  document.getElementById('tab-login').style.display = tab==='login' ? '' : 'none';
-  document.getElementById('tab-register').style.display = tab==='register' ? '' : 'none';
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active',(i===0&&tab==='login')||(i===1&&tab==='register')));
+  document.getElementById('tab-login').style.display = tab==='login'?'':'none';
+  document.getElementById('tab-register').style.display = tab==='register'?'':'none';
 }
-
 function handleLogin() {
   const code = document.getElementById('login-code').value.trim().toUpperCase();
   const apikey = document.getElementById('login-apikey').value.trim();
   if (!code) { showToast('Syötä käyttäjäkoodisi'); return; }
   if (!apikey) { showToast('Syötä Groq API -avain'); return; }
   const user = loadUser(code);
-  if (!user) { showToast('Koodia ei löydy. Luo ensin tili.'); return; }
+  if (!user) { showToast('Koodia ei löydy — luo ensin tili.'); return; }
   user.apiKey = apikey;
   currentUser = user;
   saveUser();
   enterApp();
 }
-
 function handleRegister() {
   const name = document.getElementById('reg-name').value.trim() || 'Kirjoittaja';
   const apikey = document.getElementById('reg-apikey').value.trim();
   if (!apikey) { showToast('Syötä Groq API -avain'); return; }
   let code = generateCode();
-  while (loadUser(code)) code = generateCode(); // ensure unique
-  currentUser = {
-    code, name, apiKey: apikey,
-    xp: 0, level: 1, streak: 0,
-    lastActiveDay: null,
-    history: [],
-    exerciseStats: {},
-  };
+  while (loadUser(code)) code = generateCode();
+  currentUser = { code, name, apiKey: apikey, xp:0, level:1, streak:0, lastActiveDay:null, history:[] };
   saveUser();
   document.getElementById('generated-code').textContent = code;
   document.getElementById('new-code-display').style.display = '';
   document.getElementById('reg-btn').style.display = 'none';
   document.getElementById('continue-btn').style.display = '';
 }
-
-function finishRegister() {
-  enterApp();
-}
-
+function finishRegister() { enterApp(); }
 function enterApp() {
   updateStreak();
   document.getElementById('screen-welcome').classList.remove('active');
@@ -902,535 +534,739 @@ function enterApp() {
   document.getElementById('app-nav').style.display = '';
   showScreen('home');
 }
-
 function logout() {
   currentUser = null;
   document.getElementById('app-topbar').style.display = 'none';
   document.getElementById('app-nav').style.display = 'none';
   ['home','exercise','result','stats','settings'].forEach(s => {
     const el = document.getElementById('screen-'+s);
-    if (el) { el.classList.remove('active'); el.style.display = ''; }
+    if (el) el.classList.remove('active');
   });
   document.getElementById('screen-welcome').classList.add('active');
-  // reset inputs
   document.getElementById('login-code').value = '';
   document.getElementById('login-apikey').value = '';
 }
 
-/* ═══════════════════════════════════════════════
-   STREAK
-═══════════════════════════════════════════════ */
+/* ═══════════════════════════════════════
+   STREAK & XP
+═══════════════════════════════════════ */
 function updateStreak() {
   const today = new Date().toDateString();
-  if (!currentUser.lastActiveDay) {
-    currentUser.streak = 1;
-  } else if (currentUser.lastActiveDay === today) {
-    // same day, no change
-  } else {
-    const yesterday = new Date(Date.now() - 86400000).toDateString();
-    currentUser.streak = (currentUser.lastActiveDay === yesterday) ? currentUser.streak + 1 : 1;
+  if (!currentUser.lastActiveDay) { currentUser.streak = 1; }
+  else if (currentUser.lastActiveDay !== today) {
+    const yesterday = new Date(Date.now()-86400000).toDateString();
+    currentUser.streak = currentUser.lastActiveDay === yesterday ? (currentUser.streak||0)+1 : 1;
   }
   currentUser.lastActiveDay = today;
   saveUser();
 }
-
-/* ═══════════════════════════════════════════════
-   XP / LEVEL
-═══════════════════════════════════════════════ */
 function getLevel(xp) {
-  for (let i = LEVELS.length - 1; i >= 0; i--) {
-    if (xp >= LEVELS[i]) return i + 1;
-  }
+  for (let i=LEVELS.length-1;i>=0;i--) if (xp>=LEVELS[i]) return i+1;
   return 1;
 }
+function getXpForLevel(l) { return LEVELS[Math.min(l-1,LEVELS.length-1)]; }
+function getXpForNextLevel(l) { return LEVELS[Math.min(l,LEVELS.length-1)]; }
+function addXP(amount) { currentUser.xp+=amount; currentUser.level=getLevel(currentUser.xp); saveUser(); }
 
-function getXpForLevel(level) { return LEVELS[Math.min(level - 1, LEVELS.length - 1)]; }
-function getXpForNextLevel(level) { return LEVELS[Math.min(level, LEVELS.length - 1)]; }
-
-function addXP(amount) {
-  currentUser.xp += amount;
-  currentUser.level = getLevel(currentUser.xp);
-  saveUser();
-}
-
-/* ═══════════════════════════════════════════════
-   SCREEN NAVIGATION
-═══════════════════════════════════════════════ */
+/* ═══════════════════════════════════════
+   NAVIGATION
+═══════════════════════════════════════ */
 function showScreen(name) {
-  const screens = ['home','exercise','result','stats','settings'];
-  screens.forEach(s => {
+  ['home','exercise','result','stats','settings'].forEach(s => {
     const el = document.getElementById('screen-'+s);
-    if (el) el.classList.toggle('active', s === name);
+    if (el) el.classList.toggle('active', s===name);
   });
-  // nav highlights
   ['home','stats','settings'].forEach(n => {
     const btn = document.getElementById('nav-'+n);
-    if (btn) btn.classList.toggle('active', n === name);
+    if (btn) btn.classList.toggle('active', n===name);
   });
-  if (name === 'home') renderHome();
-  if (name === 'stats') renderStats();
-  if (name === 'settings') renderSettings();
+  if (name==='home') renderHome();
+  if (name==='stats') renderStats();
+  if (name==='settings') renderSettings();
   updateTopbar();
+  window.scrollTo({top:0,behavior:'smooth'});
 }
-
 function goHome() { showScreen('home'); }
-
-/* ═══════════════════════════════════════════════
-   TOPBAR
-═══════════════════════════════════════════════ */
 function updateTopbar() {
   if (!currentUser) return;
-  document.getElementById('topbar-streak').textContent = currentUser.streak || 0;
-  document.getElementById('topbar-xp').textContent = currentUser.xp || 0;
+  document.getElementById('topbar-streak').textContent = currentUser.streak||0;
+  document.getElementById('topbar-xp').textContent = currentUser.xp||0;
 }
 
-/* ═══════════════════════════════════════════════
+/* ═══════════════════════════════════════
    HOME
-═══════════════════════════════════════════════ */
+═══════════════════════════════════════ */
 function renderHome() {
   if (!currentUser) return;
   updateTopbar();
-  const level = currentUser.level;
-  const xp = currentUser.xp;
-  const thisLevelXp = getXpForLevel(level);
-  const nextLevelXp = getXpForNextLevel(level);
-  const denom = nextLevelXp - thisLevelXp;
-  const pct = denom === 0 ? 100 : Math.min(100, ((xp - thisLevelXp) / denom) * 100) || 0;
-  const isMaxLevel = denom === 0;
-
+  const { level, xp } = currentUser;
+  const thisXp = getXpForLevel(level);
+  const nextXp = getXpForNextLevel(level);
+  const denom = nextXp - thisXp;
+  const pct = denom===0 ? 100 : Math.min(100,((xp-thisXp)/denom)*100)||0;
   document.getElementById('hero-name').textContent = currentUser.name;
   document.getElementById('hero-level').textContent = level;
-  document.getElementById('hero-xp-bar').style.width = pct + '%';
-  document.getElementById('xp-label-text').textContent = isMaxLevel
-    ? `${xp} XP — Maksimitaso saavutettu! 🏆`
-    : `${xp} / ${nextLevelXp} XP tasoon ${level + 1}`;
-  document.getElementById('streak-days').textContent = currentUser.streak || 0;
+  document.getElementById('hero-xp-bar').style.width = pct+'%';
+  document.getElementById('xp-label-text').textContent = denom===0 ? `${xp} XP — Maksimitaso 🏆` : `${xp} / ${nextXp} XP`;
+  document.getElementById('streak-days').textContent = currentUser.streak||0;
+  const tl = ['Mitä kirjoitetaan tänään?','Jatketaan harjoittelua!','Kirjoittaminen on taito.','Tänään kirjoitat vielä paremmin.'];
+  document.getElementById('hero-tagline').textContent = tl[Math.floor(Math.random()*tl.length)];
 
-  const taglines = ['Mitä kirjoitetaan tänään?','Jatketaan harjoittelua!','Kirjoittaminen on taito — harjoittele!','Tänään kirjoitat vielä paremmin.'];
-  document.getElementById('hero-tagline').textContent = taglines[Math.floor(Math.random() * taglines.length)];
-
-  // Exercises
   const grid = document.getElementById('exercises-list');
   grid.innerHTML = '';
   EXERCISE_TYPES.forEach(ex => {
     const locked = level < ex.minLevel;
     const stars = getStarsForType(ex.id);
     const row = document.createElement('div');
-    row.className = 'exercise-row' + (locked ? ' locked' : '');
-    row.onclick = locked ? null : () => startExercise(ex.id);
-    row.innerHTML = `
-      <div class="ex-icon" style="background:${ex.color}">${ex.icon}</div>
-      <div class="ex-info">
-        <div class="ex-title">${ex.title}</div>
-        <div class="ex-desc">${ex.desc}</div>
-      </div>
-      <div class="ex-meta">
-        ${locked ? `<span class="ex-lock">🔒 Taso ${ex.minLevel}</span>` : `
-        <span class="ex-stars">${'★'.repeat(stars)}${'☆'.repeat(3-stars)}</span>
-        <span class="ex-xp">+${ex.xpBase} XP</span>`}
-      </div>`;
+    row.className = 'exercise-row'+(locked?' locked':'');
+    if (!locked) row.onclick = () => startExercise(ex.id);
+    row.innerHTML = `<div class="ex-icon" style="background:${ex.color}">${ex.icon}</div>
+      <div class="ex-info"><div class="ex-title">${ex.title}</div><div class="ex-desc">${ex.desc}</div></div>
+      <div class="ex-meta">${locked
+        ? `<span style="font-size:.78rem;color:var(--ink-3)">🔒 Taso ${ex.minLevel}</span>`
+        : `<span class="ex-stars">${'★'.repeat(stars)}${'☆'.repeat(3-stars)}</span><span class="ex-xp">+${ex.xpBase} XP</span>`
+      }</div>`;
     grid.appendChild(row);
   });
 
-  // History
   const histEl = document.getElementById('history-list');
-  const recent = (currentUser.history || []).slice(-5).reverse();
-  if (recent.length === 0) {
-    histEl.innerHTML = '<div class="empty-state"><div class="big">✍️</div><p>Ei vielä harjoituksia. Aloita ensimmäinen!</p></div>';
-  } else {
-    histEl.innerHTML = recent.map(h => {
-      const cls = h.score >= 8 ? 'score-a' : h.score >= 6 ? 'score-b' : 'score-c';
-      return `<div class="history-item">
-        <div class="history-score ${cls}">${h.score}</div>
-        <div class="history-text">
-          <div class="history-prompt">${h.prompt}</div>
-          <div class="history-date">${h.type} · ${formatDate(h.date)}</div>
-        </div>
-      </div>`;
-    }).join('');
+  const recent = (currentUser.history||[]).slice(-5).reverse();
+  histEl.innerHTML = recent.length===0
+    ? '<div class="empty-state"><div class="big">✍️</div><p>Ei vielä harjoituksia. Aloita ensimmäinen!</p></div>'
+    : recent.map(h => {
+        const cls = h.score>=8?'score-a':h.score>=6?'score-b':'score-c';
+        const typeDef = EXERCISE_TYPES.find(e=>e.id===h.type)||{title:h.type};
+        return `<div class="history-item"><div class="history-score ${cls}">${h.score}</div>
+          <div style="flex:1;font-size:.84rem"><div style="font-weight:500;color:var(--ink)">${h.prompt||'Harjoitus'}</div>
+          <div style="font-size:.75rem;color:var(--ink-3)">${typeDef.title} · ${formatDate(h.date)} · +${h.xp} XP</div></div></div>`;
+      }).join('');
+}
+function getStarsForType(id) {
+  const h = (currentUser.history||[]).filter(x=>x.type===id);
+  if (!h.length) return 0;
+  const avg = h.reduce((s,x)=>s+x.score,0)/h.length;
+  return avg>=8?3:avg>=6?2:1;
+}
+function formatDate(ts) { return new Date(ts).toLocaleDateString('fi-FI',{day:'numeric',month:'short'}); }
+
+/* ═══════════════════════════════════════
+   GROQ API HELPER
+═══════════════════════════════════════ */
+async function callGroq(messages, max_tokens=2000, temperature=0.5) {
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':`Bearer ${currentUser.apiKey}`},
+    body: JSON.stringify({ model:'llama-3.3-70b-versatile', messages, temperature, max_tokens })
+  });
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.error?.message || `HTTP ${response.status}`);
+  }
+  const data = await response.json();
+  let raw = data.choices[0].message.content.trim();
+  raw = raw.replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/i,'').trim();
+  return raw;
+}
+
+/* ═══════════════════════════════════════
+   EXERCISE FLOW
+═══════════════════════════════════════ */
+async function startExercise(typeId) {
+  const typeDef = EXERCISE_TYPES.find(e=>e.id===typeId);
+  if (!typeDef) return;
+
+  currentExercise = { typeDef, generatedData:null, round:0, totalRounds:3, scores:[] };
+
+  document.getElementById('ex-screen-title').textContent = typeDef.title;
+  document.getElementById('ex-screen-sub').textContent = 'Ladataan harjoitusta…';
+  document.getElementById('exercise-content').innerHTML = `<div class="generating-prompt"><div class="gen-spinner"></div><p>Luodaan harjoitustehtävää…</p></div>`;
+  document.getElementById('submit-btn').style.display = 'none';
+  document.getElementById('grading-indicator').style.display = 'none';
+  renderProgressDots();
+  showScreen('exercise');
+
+  try {
+    const data = await generateExerciseData(typeDef, currentUser.level);
+    currentExercise.generatedData = data;
+    renderExerciseContent(typeDef, data);
+    document.getElementById('ex-screen-sub').textContent = `Kierros 1 / ${currentExercise.totalRounds}`;
+    document.getElementById('submit-btn').style.display = '';
+  } catch(e) {
+    document.getElementById('exercise-content').innerHTML = `<div class="empty-state"><div class="big">⚠️</div><p>Virhe tehtävän lataamisessa: ${e.message}</p></div>`;
+    showToast('Virhe: '+e.message);
   }
 }
 
-function getStarsForType(typeId) {
-  const history = (currentUser.history || []).filter(h => h.type === typeId);
-  if (history.length === 0) return 0;
-  const avg = history.reduce((s, h) => s + h.score, 0) / history.length;
-  if (avg >= 8) return 3;
-  if (avg >= 6) return 2;
-  return 1;
+async function generateExerciseData(typeDef, level) {
+  const levelDesc = level<=2?'aloittelija (lukion 1. vuosi)':level<=4?'keskitaso (lukion 2. vuosi)':'edistynyt (ylioppilaskirjoitukset)';
+
+  const systemMsg = `Olet suomen kielen opettaja, joka luo harjoitustehtäviä lukiolaisille. Taso: ${levelDesc}. Vastaa VAIN JSON-muodossa, ei muuta tekstiä, ei markdown-koodimerkkejä.`;
+
+  const prompts = {
+    kirjoita: `Luo vapaakirjoitustehtävä. JSON-muoto: {"topic":"<aiheotsikko>","prompt":"<tehtävänanto 1-2 lausetta>","hint":"<kirjoitusvihje>","tips":["<vihje1>","<vihje2>","<vihje3>"],"wordMin":${level<3?60:level<5?100:150},"wordMax":${level<3?150:level<5?250:350}}`,
+    tayta_aukot: `Luo sanaston rikastustehtävä. Kirjoita lyhyt teksti (4-6 lausetta) jossa on 5 merkattua tavallista/heikkoa sanaa, jotka opiskelija korvaa paremmilla. JSON: {"context":"<konteksti/aihe>","text":"<teksti jossa heikot sanat merkattuna [sana] hakasulkeilla>","blanks":[{"original":"<alkuperäinen sana>","hint":"<vihje paremmasta sanasta>"}],"tips":["<vihje>"]}`,
+    muotoile: `Luo 4 arkikielen lausetta jotka opiskelija muuttaa asiatyyliksi. JSON: {"instruction":"Muuta seuraavat lauseet asiatyylisiksi","sentences":[{"casual":"<arkikielinen lause>","hint":"<mitä kannattaa huomioida>"}],"tips":["<vihje>"]}`,
+    jarjesta: `Luo kappale (5 lausetta) ja sekoita lauseiden järjestys. JSON: {"topic":"<aihe>","instruction":"Järjestä seuraavat lauseet loogiseksi kappaleeksi","sentences":["<lause1>","<lause2>","<lause3>","<lause4>","<lause5>"],"correctOrder":[0,1,2,3,4],"tips":["<vihje>"]}  TÄRKEÄÄ: sentences-taulukossa lauseet ovat sekaisin, correctOrder kertoo oikean järjestyksen indekseinä.`,
+    korjaa: `Luo teksti (4-6 lausetta) jossa on 4-6 tahallista virhettä (kielioppi, oikeinkirjoitus, välimerkit). JSON: {"instruction":"Etsi ja korjaa kaikki virheet","text":"<teksti virheineen>","errorCount":5,"tips":["<vihje>"]}`,
+    siirtymä: `Luo 3 lauseparia jotka opiskelijan pitää yhdistää sopivalla siirtymäsanalla/lauseella. JSON: {"instruction":"Yhdistä lauseparit sopivalla siirtymäilmaisulla","pairs":[{"a":"<lause A>","b":"<lause B>","hint":"<millainen siirtymä sopii>"}],"tips":["esimerkkisiirtymäilmaisuja: lisäksi, kuitenkin, toisaalta, sen sijaan, tästä johtuen"]}`,
+    argumentoi: `Luo argumentaatiotehtävä. JSON: {"thesis":"<väite johon pitää ottaa kanta>","prompt":"<tehtävänanto>","hint":"<rakenneohjeet>","tips":["Esitä selkeä kanta","Anna 3 perustetta","Käsittele vastaväite","Päätä vahvaan johtopäätökseen"],"wordMin":120,"wordMax":280}`,
+    johdanto: `Luo esseenjohdantoharjoitus. JSON: {"essayTitle":"<esseen otsikko>","prompt":"Kirjoita koukuttava johdanto tälle esseelle","hint":"Aloita koukulla (kysymys/fakta/sitaatti), esittele aihe, johda teesiin","tips":["Vältä kliseitä kuten 'Nykymaailmassa...'","Herätä lukijan uteliaisuus","Pituus: 80-120 sanaa"],"wordMin":70,"wordMax":130}`,
+    paatos: `Luo esseenpäätösharjoitus ja anna tiivistelmä esseestä. JSON: {"essaySummary":"<tiivistelmä esseestä josta pitää kirjoittaa päätös, 3-4 lausetta>","prompt":"Kirjoita yhteenvetoa tekevä päätös tälle esseelle","hint":"Tiivistä pääargumentit, avaa laajempaan perspektiiviin, älä toista sanasta sanaan","tips":["Älä aloita sanalla 'Yhteenvetona'","Luo tunne lopetuksesta","Voi päättyä kysymykseen tai ajatukseen"],"wordMin":70,"wordMax":130}`,
+    luku_vastaus: `Luo lyhyt lähdeteksti (150-200 sanaa, lukiotasoinen asiateksti) ja siihen lukutaidon vastaustehtävä. JSON: {"sourceTitle":"<lähdetekstin otsikko>","sourceText":"<lähdeteksti>","sourceAuthor":"<kuvitteellinen kirjoittaja>","task":"<tehtävänanto: mitä pitää analysoida/vastata>","hint":"<ohjeet vastaamiseen>","tips":["Viittaa tekstiin: 'Kirjoittajan mukaan...'","Erota fakta ja mielipide","Perustele tulkintasi"],"wordMin":100,"wordMax":220}`,
+    luku_viittaus: `Luo viittaamisharjoitus ilman lähdetekstiä. JSON: {"topic":"<aihe>","prompt":"<tehtävänanto: harjoittele viittaamista kirjoittamalla teksti joka viittaa kuviteltuihin lähteisiin>","givenSources":[{"author":"<nimi>","year":2023,"title":"<teoksen nimi>","keyPoint":"<mitä lähteessä sanotaan>"}],"hint":"<ohjeet>","tips":["Epäsuora lainaus: Tutkijan (2023) mukaan...","Suora lainaus: '...' (Tekijä 2023, 45)","Oma analyysi lainauksen jälkeen"],"wordMin":100,"wordMax":200}`,
+    vertailu: `Luo vertailevakirjoitustehtävä. JSON: {"topic":"<kaksi vertailtavaa asiaa/näkökulmaa>","prompt":"<tehtävänanto>","hint":"<vertailun rakenne>","tips":["Käytä vertailurakenteita: kun taas, sen sijaan, toisin kuin","Käsittele molempia puolia tasapuolisesti","Tee johtopäätös"],"wordMin":130,"wordMax":280}`,
+    tiivistelmä: `Luo tiivistelmätehtävä lyhyestä tekstistä. JSON: {"sourceTitle":"<otsikko>","sourceText":"<lähdeteksti 150-180 sanaa>","task":"Tiivistä teksti noin kolmasosaan alkuperäisestä säilyttäen olennaiset asiat","hint":"<ohjeita tiivistämiseen>","tips":["Älä kopioi lauseita","Käytä omia sanoja","Säilytä kirjoittajan kanta"],"wordMin":50,"wordMax":80}`,
+    pohdinta: `Luo syvällinen pohdintakirjoitustehtävä. JSON: {"topic":"<yhteiskunnallinen tai filosofinen aihe>","prompt":"<tehtävänanto>","hint":"<ohje pohdinnan rakentamiseen>","tips":["Etene yleisestä erityiseen","Pohdi eri näkökulmia","Ota selkeä oma kanta perusteluineen","Käytä esimerkkejä"],"wordMin":180,"wordMax":380}`,
+  };
+
+  const raw = await callGroq([
+    {role:'system', content:systemMsg},
+    {role:'user', content:prompts[typeDef.id] || prompts.kirjoita}
+  ], 1200, 0.7);
+
+  return JSON.parse(raw);
 }
 
-function formatDate(ts) {
-  const d = new Date(ts);
-  return d.toLocaleDateString('fi-FI', { day:'numeric', month:'short' });
+/* ═══════════════════════════════════════
+   RENDER EXERCISE CONTENT
+═══════════════════════════════════════ */
+function renderExerciseContent(typeDef, data) {
+  const container = document.getElementById('exercise-content');
+  container.innerHTML = '';
+
+  // Tips (shared)
+  const tipsHtml = (data.tips||[]).map(t=>`<div class="tip-chip">💬 ${t}</div>`).join('');
+
+  switch(typeDef.id) {
+
+    case 'kirjoita':
+    case 'argumentoi':
+    case 'johdanto':
+    case 'paatos':
+    case 'vertailu':
+    case 'pohdinta': {
+      let promptCard = `<div class="prompt-card fade-in">
+        <div class="prompt-type-label">${typeDef.title}</div>
+        <div class="prompt-text">${data.essayTitle||data.topic||data.thesis||data.prompt||''}</div>
+        ${data.prompt && (data.essayTitle||data.topic||data.thesis) ? `<div style="margin-top:10px;font-size:.92rem;color:var(--ink-2)">${data.prompt}</div>`:''}
+        ${data.hint?`<div class="prompt-hint">💡 ${data.hint}</div>`:''}
+      </div>`;
+      if (data.essaySummary) {
+        promptCard += `<div class="source-text-box fade-in"><div class="src-label">Esseen sisältö</div>${data.essaySummary}</div>`;
+      }
+      container.innerHTML = promptCard +
+        `<div class="tips-row">${tipsHtml}</div>
+        <textarea class="writing-area" id="writing-input" placeholder="Kirjoita vastauksesi tähän... (${data.wordMin||60}–${data.wordMax||250} sanaa)"></textarea>
+        <div class="word-count"><span class="wc-num" id="word-count-num">0</span> sanaa <span style="color:var(--ink-3)">(tavoite: ${data.wordMin||60}–${data.wordMax||250})</span></div>`;
+      setupWordCount();
+      break;
+    }
+
+    case 'luku_vastaus':
+    case 'tiivistelmä': {
+      container.innerHTML = `
+        <div class="source-text-box fade-in">
+          <div class="src-label">📄 ${data.sourceTitle||'Lähdeteksti'}${data.sourceAuthor?' — '+data.sourceAuthor:''}</div>
+          ${data.sourceText||''}
+        </div>
+        <div class="prompt-card fade-in">
+          <div class="prompt-type-label">Tehtävä</div>
+          <div class="prompt-text">${data.task||data.prompt||''}</div>
+          ${data.hint?`<div class="prompt-hint">💡 ${data.hint}</div>`:''}
+        </div>
+        <div class="tips-row">${tipsHtml}</div>
+        <textarea class="writing-area" id="writing-input" placeholder="Kirjoita vastauksesi tähän... (${data.wordMin||80}–${data.wordMax||220} sanaa)"></textarea>
+        <div class="word-count"><span class="wc-num" id="word-count-num">0</span> sanaa</div>`;
+      setupWordCount();
+      break;
+    }
+
+    case 'luku_viittaus': {
+      const sourcesHtml = (data.givenSources||[]).map((s,i)=>`
+        <div style="padding:10px 14px;background:var(--bg);border-radius:8px;margin-bottom:8px;font-size:.85rem">
+          <strong>${s.author} (${s.year}).</strong> <em>${s.title}.</em><br/>
+          <span style="color:var(--ink-2);font-size:.8rem">Keskeinen väite: ${s.keyPoint}</span>
+        </div>`).join('');
+      container.innerHTML = `
+        <div class="prompt-card fade-in">
+          <div class="prompt-type-label">${typeDef.title}</div>
+          <div class="prompt-text">${data.topic||''}</div>
+          <div style="margin-top:10px;font-size:.9rem;color:var(--ink-2)">${data.prompt||''}</div>
+          ${data.hint?`<div class="prompt-hint">💡 ${data.hint}</div>`:''}
+        </div>
+        <div style="margin-bottom:18px"><div style="font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:10px">Käytettävissä olevat lähteet</div>${sourcesHtml}</div>
+        <div class="tips-row">${tipsHtml}</div>
+        <textarea class="writing-area" id="writing-input" placeholder="Kirjoita vastauksesi viittauksineen... (${data.wordMin||100}–${data.wordMax||200} sanaa)"></textarea>
+        <div class="word-count"><span class="wc-num" id="word-count-num">0</span> sanaa</div>`;
+      setupWordCount();
+      break;
+    }
+
+    case 'tayta_aukot': {
+      // Show text with highlighted weak words, inputs below
+      let displayText = data.text||'';
+      const blanks = data.blanks||[];
+      blanks.forEach((b,i) => {
+        displayText = displayText.replace(`[${b.original}]`, `<span class="blank-word" title="Korvaa tämä sana">${b.original}</span>`);
+      });
+      const inputsHtml = blanks.map((b,i)=>`
+        <div class="blank-input-item">
+          <span class="orig">${b.original}</span>
+          <span class="arrow">→</span>
+          <input type="text" id="blank-${i}" placeholder="${b.hint||'Parempi sana…'}" autocomplete="off" spellcheck="false"/>
+        </div>`).join('');
+      container.innerHTML = `
+        <div class="prompt-card fade-in">
+          <div class="prompt-type-label">${typeDef.title}</div>
+          <div class="prompt-text" style="font-size:1rem">${data.context||'Korvaa korostetut sanat rikkaammilla ilmaisuilla'}</div>
+        </div>
+        <div class="blank-text fade-in">${displayText}</div>
+        <div style="font-size:.82rem;font-weight:600;color:var(--ink-2);margin-bottom:10px">Kirjoita paremmat sanat:</div>
+        <div class="blank-input-row">${inputsHtml}</div>
+        <div class="tips-row">${tipsHtml}</div>`;
+      break;
+    }
+
+    case 'muotoile': {
+      const sentencesHtml = (data.sentences||[]).map((s,i)=>`
+        <div class="blank-input-item" style="flex-direction:column;align-items:flex-start;gap:6px">
+          <div style="font-size:.85rem;color:var(--ink-3);font-style:italic">"${s.casual}"</div>
+          ${s.hint?`<div style="font-size:.75rem;color:var(--ink-3)">💡 ${s.hint}</div>`:''}
+          <input type="text" id="sentence-${i}" placeholder="Asiatyylinen versio…" style="width:100%" autocomplete="off"/>
+        </div>`).join('');
+      container.innerHTML = `
+        <div class="prompt-card fade-in">
+          <div class="prompt-type-label">${typeDef.title}</div>
+          <div class="prompt-text" style="font-size:1rem">${data.instruction||'Muuta lauseet asiatyyliksi'}</div>
+        </div>
+        <div class="blank-input-row" style="margin-top:16px">${sentencesHtml}</div>
+        <div class="tips-row">${tipsHtml}</div>`;
+      break;
+    }
+
+    case 'jarjesta': {
+      // Scramble the sentences for display
+      const sentences = [...(data.sentences||[])];
+      const shuffled = [...sentences].map((s,i)=>({s,i})).sort(()=>Math.random()-.5);
+      container.dataset.sentences = JSON.stringify(sentences);
+      container.dataset.correct = JSON.stringify(data.correctOrder||sentences.map((_,i)=>i));
+      const itemsHtml = shuffled.map((item,pos)=>`
+        <div class="blank-input-item" style="cursor:grab;user-select:none" draggable="true" data-idx="${item.i}" id="sort-item-${pos}">
+          <span style="font-size:1rem">⠿</span>
+          <span style="flex:1;font-size:.9rem">${item.s}</span>
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <button onclick="moveItem(this,-1)" style="border:none;background:none;cursor:pointer;font-size:.9rem;color:var(--ink-3)">▲</button>
+            <button onclick="moveItem(this,1)" style="border:none;background:none;cursor:pointer;font-size:.9rem;color:var(--ink-3)">▼</button>
+          </div>
+        </div>`).join('');
+      container.innerHTML = `
+        <div class="prompt-card fade-in">
+          <div class="prompt-type-label">${typeDef.title}</div>
+          <div class="prompt-text" style="font-size:1rem">${data.instruction||'Järjestä lauseet oikeaan järjestykseen'}</div>
+          ${data.topic?`<div class="prompt-hint">Aihe: ${data.topic}</div>`:''}
+        </div>
+        <div class="tips-row">${tipsHtml}</div>
+        <div id="sort-container" class="blank-input-row">${itemsHtml}</div>`;
+      break;
+    }
+
+    case 'korjaa': {
+      container.innerHTML = `
+        <div class="prompt-card fade-in">
+          <div class="prompt-type-label">${typeDef.title}</div>
+          <div class="prompt-text" style="font-size:1rem">${data.instruction||'Etsi ja korjaa kaikki virheet'}</div>
+          ${data.errorCount?`<div class="prompt-hint">💡 Tekstissä on noin ${data.errorCount} virhettä.</div>`:''}
+        </div>
+        <div class="source-text-box fade-in" style="font-style:italic;color:var(--ink)">${data.text||''}</div>
+        <div class="tips-row" style="margin-top:16px">${tipsHtml}</div>
+        <div style="font-size:.84rem;color:var(--ink-2);margin-bottom:8px">Kirjoita korjattu versio:</div>
+        <textarea class="writing-area" id="writing-input" placeholder="Kirjoita koko teksti korjattuna…" style="min-height:130px"></textarea>
+        <div class="word-count"><span class="wc-num" id="word-count-num">0</span> sanaa</div>`;
+      setupWordCount();
+      break;
+    }
+
+    case 'siirtymä': {
+      const pairsHtml = (data.pairs||[]).map((p,i)=>`
+        <div style="margin-bottom:16px">
+          <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+            <span style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:.88rem;flex:1">${p.a}</span>
+            <span style="color:var(--ink-3)">+</span>
+            <span style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:.88rem;flex:1">${p.b}</span>
+          </div>
+          ${p.hint?`<div style="font-size:.76rem;color:var(--ink-3);margin-bottom:6px">💡 ${p.hint}</div>`:''}
+          <input type="text" id="transition-${i}" placeholder="Kirjoita yhdistetty lause siirtymällä…" style="width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:.93rem;outline:none;background:var(--surface)" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
+        </div>`).join('');
+      container.innerHTML = `
+        <div class="prompt-card fade-in">
+          <div class="prompt-type-label">${typeDef.title}</div>
+          <div class="prompt-text" style="font-size:1rem">${data.instruction||'Yhdistä lauseparit sopivalla siirtymällä'}</div>
+        </div>
+        <div class="tips-row">${tipsHtml}</div>
+        <div style="margin-top:4px">${pairsHtml}</div>`;
+      break;
+    }
+
+    default: {
+      container.innerHTML = `<div class="prompt-card fade-in">
+        <div class="prompt-type-label">${typeDef.title}</div>
+        <div class="prompt-text">${data.prompt||data.topic||data.task||JSON.stringify(data)}</div>
+        ${data.hint?`<div class="prompt-hint">💡 ${data.hint}</div>`:''}
+      </div>
+      <div class="tips-row">${tipsHtml}</div>
+      <textarea class="writing-area" id="writing-input" placeholder="Kirjoita vastauksesi tähän…"></textarea>
+      <div class="word-count"><span class="wc-num" id="word-count-num">0</span> sanaa</div>`;
+      setupWordCount();
+    }
+  }
 }
 
-/* ═══════════════════════════════════════════════
-   EXERCISE FLOW
-═══════════════════════════════════════════════ */
-function startExercise(typeId) {
-  const type = EXERCISE_TYPES.find(e => e.id === typeId);
-  if (!type) return;
-
-  // Pick random prompts for this session
-  const pool = PROMPTS[typeId] || [];
-  const shuffled = [...pool].sort(() => Math.random() - .5);
-  const picked = shuffled.slice(0, type.rounds);
-
-  currentExercise = { type, prompts: picked, currentRound: 0, scores: [] };
-  loadRound();
-  showScreen('exercise');
+function setupWordCount() {
+  const ta = document.getElementById('writing-input');
+  if (ta) ta.addEventListener('input', () => {
+    const words = ta.value.trim() ? ta.value.trim().split(/\s+/).length : 0;
+    const el = document.getElementById('word-count-num');
+    if (el) el.textContent = words;
+  });
 }
 
-function loadRound() {
-  const { type, prompts, currentRound } = currentExercise;
-  currentPrompt = prompts[currentRound] || prompts[0];
+function moveItem(btn, dir) {
+  const item = btn.closest('[id^="sort-item-"]');
+  const container = document.getElementById('sort-container');
+  const items = [...container.children];
+  const idx = items.indexOf(item);
+  const target = idx + dir;
+  if (target < 0 || target >= items.length) return;
+  if (dir === -1) container.insertBefore(item, items[target]);
+  else container.insertBefore(items[target], item);
+}
 
-  document.getElementById('ex-screen-title').textContent = type.title;
-  document.getElementById('ex-screen-sub').textContent = `Kierros ${currentRound + 1} / ${type.rounds}`;
-
-  // Dots
+function renderProgressDots() {
+  const { round, totalRounds } = currentExercise;
   const dots = document.getElementById('progress-dots');
   dots.innerHTML = '';
-  for (let i = 0; i < type.rounds; i++) {
+  for (let i=0;i<totalRounds;i++) {
     const d = document.createElement('div');
-    d.className = 'dot' + (i < currentRound ? ' done' : i === currentRound ? ' current' : '');
+    d.className = 'dot'+(i<round?' done':i===round?' current':'');
     dots.appendChild(d);
   }
-
-  // Prompt
-  document.getElementById('prompt-type-label').textContent = type.title;
-  document.getElementById('prompt-text').textContent = currentPrompt.text;
-  const hintEl = document.getElementById('prompt-hint');
-  if (currentPrompt.hint) {
-    hintEl.textContent = '💡 ' + currentPrompt.hint;
-    hintEl.style.display = '';
-  } else {
-    hintEl.style.display = 'none';
-  }
-
-  // Tips
-  const tipsEl = document.getElementById('tips-row');
-  tipsEl.innerHTML = (currentPrompt.tips || []).map(t => `<div class="tip-chip">💬 ${t}</div>`).join('');
-
-  // Word count target
-  document.getElementById('word-target-text').textContent = `(tavoite: ${type.wordMin}–${type.wordMax} sanaa)`;
-
-  // Clear textarea
-  const ta = document.getElementById('writing-input');
-  ta.value = '';
-  ta.placeholder = `Kirjoita vastauksesi tähän... (${type.wordMin}–${type.wordMax} sanaa)`;
-  updateWordCount();
-
-  document.getElementById('submit-btn').disabled = false;
-  document.getElementById('submit-btn').style.display = '';
-  document.getElementById('grading-indicator').style.display = 'none';
-
-  // Scroll to top
-  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-document.getElementById('writing-input').addEventListener('input', updateWordCount);
-
-function updateWordCount() {
-  const text = document.getElementById('writing-input').value.trim();
-  const words = text ? text.split(/\s+/).length : 0;
-  document.getElementById('word-count-num').textContent = words;
-  const { type } = currentExercise || {};
-  if (type) {
-    const ok = words >= type.wordMin;
-    document.getElementById('submit-btn').disabled = !ok && words > 0 ? false : false; // always allow, just info
+/* ═══════════════════════════════════════
+   COLLECT ANSWER
+═══════════════════════════════════════ */
+function collectAnswer(typeDef, data) {
+  switch(typeDef.id) {
+    case 'tayta_aukot': {
+      const blanks = data.blanks||[];
+      const answers = blanks.map((b,i) => {
+        const inp = document.getElementById('blank-'+i);
+        return { original: b.original, replacement: inp ? inp.value.trim() : '' };
+      });
+      if (answers.some(a=>!a.replacement)) { showToast('Täytä kaikki kohdat!'); return null; }
+      return JSON.stringify(answers);
+    }
+    case 'muotoile': {
+      const sentences = data.sentences||[];
+      const answers = sentences.map((s,i) => {
+        const inp = document.getElementById('sentence-'+i);
+        return { original: s.casual, rewritten: inp ? inp.value.trim() : '' };
+      });
+      if (answers.some(a=>!a.rewritten)) { showToast('Muotoile kaikki lauseet!'); return null; }
+      return JSON.stringify(answers);
+    }
+    case 'jarjesta': {
+      const container = document.getElementById('sort-container');
+      if (!container) return null;
+      const order = [...container.children].map(el=>parseInt(el.dataset.idx));
+      return 'Järjestys: ' + order.map(i=>(data.sentences||[])[i]).join(' / ');
+    }
+    case 'siirtymä': {
+      const pairs = data.pairs||[];
+      const answers = pairs.map((_,i) => {
+        const inp = document.getElementById('transition-'+i);
+        return inp ? inp.value.trim() : '';
+      });
+      if (answers.some(a=>!a)) { showToast('Täytä kaikki lauseyhdistelmät!'); return null; }
+      return answers.join('\n');
+    }
+    default: {
+      const ta = document.getElementById('writing-input');
+      if (!ta || !ta.value.trim() || ta.value.trim().split(/\s+/).length < 3) {
+        showToast('Kirjoita ensin vastauksesi!'); return null;
+      }
+      return ta.value.trim();
+    }
   }
 }
 
-/* ═══════════════════════════════════════════════
-   GRADING
-═══════════════════════════════════════════════ */
+/* ═══════════════════════════════════════
+   SUBMIT & GRADE
+═══════════════════════════════════════ */
 async function submitAnswer() {
-  const text = document.getElementById('writing-input').value.trim();
-  if (!text || text.split(/\s+/).length < 3) {
-    showToast('Kirjoita ensin vastauksesi!');
-    return;
-  }
+  const { typeDef, generatedData } = currentExercise;
+  const answer = collectAnswer(typeDef, generatedData);
+  if (answer === null) return;
 
   document.getElementById('submit-btn').style.display = 'none';
   document.getElementById('grading-indicator').style.display = 'flex';
 
-  const { type } = currentExercise;
+  const wordMin = generatedData.wordMin || 50;
+  const wordMax = generatedData.wordMax || 300;
 
-  const systemPrompt = `Olet kokenut suomen kielen opettaja, joka arvioi lukiolaisten esseekirjoitustehtäviä. 
-Anna rakentavaa ja kannustavaa palautetta. Vastaa aina JSON-muodossa, ei muita merkkejä.`;
+  const systemPrompt = `Olet kokenut suomen kielen ylioppilaskoelautakunnan (YTL) arvioija. Arvioit lukiolaisten kirjoitustehtäviä YTL:n virallisten kriteerien mukaan. Anna rakentavaa, kannustavaa ja täsmällistä palautetta. Vastaa VAIN JSON-muodossa, ei mitään muuta tekstiä.`;
 
-  const userPrompt = `Arvioi seuraava suomen kielen kirjoitustehtävä lukiotasolla.
+  const taskContext = buildTaskContext(typeDef, generatedData);
 
-TEHTÄVÄTYYPPI: ${type.title}
-TEHTÄVÄNANTO: ${currentPrompt.text}
-OPISKELIJAN VASTAUS: "${text}"
+  const userPrompt = `Arvioi seuraava suomen kielen harjoitustehtävä YTL:n arviointikriteerien mukaan.
 
-Arvioi seuraavilla kriteereillä (0–10):
-1. Sisältö ja aiheen käsittely
-2. Rakenne ja johdonmukaisuus  
-3. Kieli ja sanasto
-4. Kielioppi ja oikeinkirjoitus
+HARJOITUSTYYPPI: ${typeDef.title}
+TEHTÄVÄ: ${taskContext}
+OPISKELIJAN VASTAUS: """${answer}"""
 
-Palauta VAIN tämä JSON-rakenne (ei markdown, ei selityksiä):
+Arvioi YTL:n kriteerien mukaan (0-10 kukin):
+1. Sisällön hallinta (aiheen käsittely, ideat, relevanssi)
+2. Tekstin rakenne (johdanto/kehittely/päätös, koheesio, siirtymät)
+3. Argumentaatio (väitteet, perustelut, kriittinen ajattelu)
+4. Sanasto ja tyyli (rikkaus, rekisteri, täsmällisyys)
+5. Kieliasu (oikeinkirjoitus, välimerkit, lauserakenteet)
+
+Palauta TARKASTI tämä JSON (ei poikkeuksia):
 {
-  "totalScore": <kokonaispistemäärä 0-10, desimaaliluku>,
-  "verdict": "<Erinomainen/Hyvä/Kohtalainen/Kehitettävää>",
-  "comment": "<Lyhyt yleiskommentti suomeksi, max 30 sanaa>",
+  "totalScore": <kokonaispistemäärä 0-10>,
+  "verdict": "<Erinomainen|Hyvä|Tyydyttävä|Kehitettävää>",
+  "comment": "<Yleiskommentti max 25 sanaa suomeksi>",
   "criteria": [
-    {"name": "Sisältö", "score": <0-10>, "desc": "<lyhyt palaute>"},
-    {"name": "Rakenne", "score": <0-10>, "desc": "<lyhyt palaute>"},
-    {"name": "Sanasto", "score": <0-10>, "desc": "<lyhyt palaute>"},
-    {"name": "Kielioppi", "score": <0-10>, "desc": "<lyhyt palaute>"}
+    {"key":"sisalto","name":"Sisällön hallinta","score":<0-10>,"desc":"<1-2 lausetta palautetta>"},
+    {"key":"rakenne","name":"Tekstin rakenne","score":<0-10>,"desc":"<1-2 lausetta>"},
+    {"key":"argumentti","name":"Argumentaatio","score":<0-10>,"desc":"<1-2 lausetta>"},
+    {"key":"sanasto","name":"Sanasto ja tyyli","score":<0-10>,"desc":"<1-2 lausetta>"},
+    {"key":"kieliasu","name":"Kieliasu","score":<0-10>,"desc":"<1-2 lausetta>"}
   ],
-  "strengths": ["<vahvuus 1>", "<vahvuus 2>"],
-  "improvements": ["<kehityskohde 1>", "<kehityskohde 2>", "<kehityskohde 3>"],
-  "exampleAnswer": "<Näytä miten tämä tehtävä olisi voitu kirjoittaa erinomaisesti, noin ${type.wordMin}–${type.wordMax} sanaa>",
+  "strengths": ["<vahvuus 1>","<vahvuus 2>"],
+  "improvements": ["<kehityskohde 1>","<kehityskohde 2>","<kehityskohde 3>"],
+  "annotations": [
+    {"phrase":"<lainaa tarkka lause/fraasi opiskelijan tekstistä>","type":"grammar|word|structure|style","suggestion":"<korjausehdotus>"},
+    {"phrase":"<toinen kohta>","type":"grammar|word|structure|style","suggestion":"<ehdotus>"},
+    {"phrase":"<kolmas kohta>","type":"grammar|word|structure|style","suggestion":"<ehdotus>"}
+  ],
+  "exampleAnswer": "<Esimerkkivastaus tehtävään, ${wordMin}-${wordMax} sanaa, lukiotasoinen>",
   "sentenceComparisons": [
-    {
-      "userSentence": "<kopioi yksi opiskelijan lause>",
-      "modelSentence": "<kirjoita parempi versio samasta lauseesta>",
-      "note": "<lyhyt selitys miksi versio on parempi>"
-    },
-    {
-      "userSentence": "<toinen opiskelijan lause>",
-      "modelSentence": "<parempi versio>",
-      "note": "<selitys>"
-    }
+    {"userSentence":"<kopioi lause opiskelijan tekstistä>","modelSentence":"<paranneltu versio>","note":"<miksi parempi>"},
+    {"userSentence":"<toinen lause>","modelSentence":"<paranneltu>","note":"<selitys>"}
   ]
 }`;
 
   let result;
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${currentUser.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.4,
-        max_tokens: 1500,
-      })
-    });
-
-    if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error?.message || `HTTP ${response.status}`);
-    }
-
-    const data = await response.json();
-    let raw = data.choices[0].message.content.trim();
-    // Strip possible markdown fences
-    raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+    const raw = await callGroq([
+      {role:'system',content:systemPrompt},
+      {role:'user',content:userPrompt}
+    ], 2000, 0.3);
     result = JSON.parse(raw);
-  } catch (e) {
+  } catch(e) {
     document.getElementById('submit-btn').style.display = '';
     document.getElementById('grading-indicator').style.display = 'none';
-    showToast('Virhe arvioinnissa: ' + e.message);
+    showToast('Virhe arvioinnissa: '+e.message);
     console.error(e);
     return;
   }
 
-  // XP calculation: base + score bonus + streak bonus
+  // XP
   const scoreMultiplier = result.totalScore / 10;
-  const streakBonus = Math.min(currentUser.streak, 7) * 2;
-  const xpEarned = Math.round(type.xpBase * scoreMultiplier) + streakBonus;
+  const streakBonus = Math.min(currentUser.streak||0, 7) * 2;
+  const xpEarned = Math.round(typeDef.xpBase * scoreMultiplier) + streakBonus;
 
-  // Save to history
+  // Save history
   currentUser.history = currentUser.history || [];
-  currentUser.history.push({
-    type: type.id,
-    prompt: currentPrompt.text.substring(0, 60) + (currentPrompt.text.length > 60 ? '…' : ''),
-    score: parseFloat(result.totalScore.toFixed(1)),
-    xp: xpEarned,
-    date: Date.now(),
-    userText: text,
-  });
-
+  const promptLabel = buildPromptLabel(typeDef, generatedData);
+  currentUser.history.push({ type:typeDef.id, prompt:promptLabel, score:parseFloat(result.totalScore.toFixed(1)), xp:xpEarned, date:Date.now() });
   currentExercise.scores.push(result.totalScore);
   addXP(xpEarned);
   updateStreak();
 
-  lastResult = { result, xpEarned, userText: text };
-  renderResult(result, xpEarned);
+  lastResult = { result, xpEarned, answer, typeDef, generatedData };
+  renderResult(result, xpEarned, answer);
   showScreen('result');
 }
 
-/* ═══════════════════════════════════════════════
-   RESULT
-═══════════════════════════════════════════════ */
-function renderResult(result, xpEarned) {
-  const score = parseFloat(result.totalScore);
-  const gradeClass = score >= 8 ? 'grade-a' : score >= 6 ? 'grade-b' : 'grade-c';
-  const scoreColor = score >= 8 ? 'var(--accent)' : score >= 6 ? 'var(--gold)' : 'var(--warn)';
+function buildTaskContext(typeDef, data) {
+  switch(typeDef.id) {
+    case 'tayta_aukot': return `Teksti: "${data.text}" | Korvattavat sanat: ${(data.blanks||[]).map(b=>b.original).join(', ')}`;
+    case 'muotoile': return `Lauseet muotoiltavaksi: ${(data.sentences||[]).map(s=>s.casual).join(' | ')}`;
+    case 'jarjesta': return `Lauseet: ${(data.sentences||[]).join(' | ')} | Oikea järjestys: ${JSON.stringify(data.correctOrder)}`;
+    case 'korjaa': return `Virheellinen teksti: "${data.text}"`;
+    case 'siirtymä': return `Lauseparit: ${(data.pairs||[]).map(p=>`"${p.a}" + "${p.b}"`).join(' | ')}`;
+    case 'luku_vastaus': case 'tiivistelmä': return `Lähdeteksti: "${data.sourceText}" | Tehtävä: ${data.task}`;
+    case 'luku_viittaus': return `Aihe: ${data.topic} | Lähteet: ${(data.givenSources||[]).map(s=>`${s.author} (${s.year}): ${s.keyPoint}`).join('; ')}`;
+    default: return data.essayTitle||data.thesis||data.topic||data.prompt||'';
+  }
+}
 
-  document.getElementById('result-ring').className = 'score-ring ' + gradeClass;
-  document.getElementById('result-ring').style.setProperty('--ring-color', scoreColor);
+function buildPromptLabel(typeDef, data) {
+  const raw = data.essayTitle||data.topic||data.thesis||data.task||data.prompt||data.instruction||typeDef.title;
+  return String(raw).substring(0,60)+(String(raw).length>60?'…':'');
+}
+
+/* ═══════════════════════════════════════
+   RENDER RESULT
+═══════════════════════════════════════ */
+function renderResult(result, xpEarned, answer) {
+  const score = parseFloat(result.totalScore);
+  const gradeClass = score>=8?'grade-a':score>=6?'grade-b':'grade-c';
+  const scoreColor = score>=8?'var(--accent)':score>=6?'var(--gold)':'var(--warn)';
+
+  document.getElementById('result-ring').className = 'score-ring '+gradeClass;
   document.getElementById('result-score-num').textContent = score.toFixed(1);
   document.getElementById('result-score-num').style.color = scoreColor;
-  document.getElementById('result-verdict').textContent = result.verdict || '–';
-  document.getElementById('result-comment').textContent = result.comment || '';
+  document.getElementById('result-verdict').textContent = result.verdict||'–';
+  document.getElementById('result-comment').textContent = result.comment||'';
   document.getElementById('xp-gained-chip').textContent = `+${xpEarned} XP ansaittu!`;
 
-  // Criteria bars
+  // YTL criteria bars
   const cl = document.getElementById('criteria-list');
   cl.innerHTML = '';
-  (result.criteria || []).forEach(c => {
-    const pct = (c.score / 10) * 100;
-    const fillCls = c.score >= 8 ? 'fill-a' : c.score >= 6 ? 'fill-b' : 'fill-c';
-    cl.innerHTML += `<div class="criterion">
-      <div class="crit-header">
-        <span class="crit-name">${c.name}</span>
-        <span class="crit-score">${c.score}/10</span>
-      </div>
+  (result.criteria||[]).forEach(c => {
+    const pct = (c.score/10)*100;
+    const fillCls = c.score>=8?'fill-a':c.score>=6?'fill-b':'fill-c';
+    cl.innerHTML += `<div>
+      <div class="crit-header"><span class="crit-name">${c.name}</span><span class="crit-score">${c.score}/10</span></div>
       <div class="crit-bar"><div class="crit-fill ${fillCls}" style="width:${pct}%"></div></div>
-      <div style="font-size:.8rem;color:var(--ink-3);margin-top:5px">${c.desc || ''}</div>
+      <div class="crit-desc">${c.desc||''}</div>
     </div>`;
   });
 
+  // Inline annotated text
+  const annotations = result.annotations||[];
+  let annotatedHtml = escapeHtml(answer||'');
+  // Apply annotations from longest to shortest to avoid nested replace issues
+  const sorted = [...annotations].sort((a,b)=>(b.phrase||'').length-(a.phrase||'').length);
+  sorted.forEach(ann => {
+    if (!ann.phrase) return;
+    const escaped = escapeHtml(ann.phrase);
+    const cls = ann.type==='grammar'?'mark-grammar':ann.type==='word'?'mark-word':ann.type==='structure'?'mark-structure':'mark-style';
+    const tip = (ann.suggestion||'').replace(/"/g,'&quot;');
+    annotatedHtml = annotatedHtml.replace(escaped,
+      `<span class="${cls} mark-tooltip" data-tip="${tip}" title="${tip}">${escaped}</span>`);
+  });
+  // Preserve line breaks
+  annotatedHtml = annotatedHtml.replace(/\n/g,'<br/>');
+  document.getElementById('annotated-text').innerHTML = annotatedHtml || '<span style="color:var(--ink-3);font-style:italic">Ei tekstiä annotoitavaksi.</span>';
+
   // Feedback
-  const str = document.getElementById('fb-strengths');
-  str.innerHTML = (result.strengths || []).map(s => `<div class="fb-item fb-positive">✓ ${s}</div>`).join('');
-  const imp = document.getElementById('fb-improvements');
-  imp.innerHTML = (result.improvements || []).map(s => `<div class="fb-item fb-improve">→ ${s}</div>`).join('');
+  document.getElementById('fb-strengths').innerHTML = (result.strengths||[]).map(s=>`<div class="fb-item fb-positive">✓ ${s}</div>`).join('');
+  document.getElementById('fb-improvements').innerHTML = (result.improvements||[]).map(s=>`<div class="fb-item fb-improve">→ ${s}</div>`).join('');
 
   // Example
-  document.getElementById('example-answer').textContent = result.exampleAnswer || '–';
+  document.getElementById('example-answer').textContent = result.exampleAnswer||'–';
 
   // Sentence comparison
+  const comps = result.sentenceComparisons||[];
   const tbody = document.getElementById('comparison-tbody');
-  tbody.innerHTML = '';
-  const comps = result.sentenceComparisons || [];
-  if (comps.length === 0) {
+  if (!comps.length) {
     document.getElementById('comparison-card').style.display = 'none';
   } else {
     document.getElementById('comparison-card').style.display = '';
-    comps.forEach(c => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td class="user-sent">${c.userSentence || '–'}</td><td class="model-sent">${c.modelSentence || '–'}</td><td class="sent-note">${c.note || ''}</td>`;
-      tbody.appendChild(tr);
-    });
+    tbody.innerHTML = comps.map(c=>`<tr>
+      <td class="user-sent">${escapeHtml(c.userSentence||'–')}</td>
+      <td class="model-sent">${escapeHtml(c.modelSentence||'–')}</td>
+      <td class="sent-note">${escapeHtml(c.note||'')}</td>
+    </tr>`).join('');
   }
+}
 
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+function escapeHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function nextExercise() {
-  const { currentRound, prompts, type } = currentExercise;
-  if (currentRound + 1 < prompts.length) {
-    currentExercise.currentRound++;
-    loadRound();
-    showScreen('exercise');
+  const { round, totalRounds, typeDef } = currentExercise;
+  if (round + 1 < totalRounds) {
+    currentExercise.round++;
+    // Generate a fresh prompt for next round
+    startExercise(typeDef.id);
   } else {
-    showToast(`Harjoitus valmis! Kaikki ${type.rounds} kierrosta tehty. 🎉`);
+    showToast(`Harjoitus valmis! 🎉`);
     goHome();
   }
 }
 
 function retryExercise() {
-  loadRound();
+  // Re-render the same exercise data
+  const { typeDef, generatedData } = currentExercise;
+  renderExerciseContent(typeDef, generatedData);
+  document.getElementById('submit-btn').style.display = '';
+  document.getElementById('grading-indicator').style.display = 'none';
   showScreen('exercise');
 }
 
-/* ═══════════════════════════════════════════════
+/* ═══════════════════════════════════════
    STATS
-═══════════════════════════════════════════════ */
+═══════════════════════════════════════ */
 function renderStats() {
   if (!currentUser) return;
-  const history = currentUser.history || [];
+  const history = currentUser.history||[];
   document.getElementById('stat-total-xp').textContent = currentUser.xp;
   document.getElementById('stat-exercises').textContent = history.length;
-  document.getElementById('stat-streak').textContent = currentUser.streak || 0;
-  const avg = history.length ? (history.reduce((s,h) => s+h.score,0)/history.length).toFixed(1) : '–';
+  document.getElementById('stat-streak').textContent = currentUser.streak||0;
+  const avg = history.length?(history.reduce((s,h)=>s+h.score,0)/history.length).toFixed(1):'–';
   document.getElementById('stat-avg').textContent = avg;
-
   const list = document.getElementById('stats-history-list');
   const recent = history.slice(-10).reverse();
-  list.innerHTML = recent.length === 0
+  list.innerHTML = recent.length===0
     ? '<div class="empty-state"><div class="big">📊</div><p>Ei vielä harjoituksia.</p></div>'
-    : recent.map(h => {
-        const cls = h.score >= 8 ? 'score-a' : h.score >= 6 ? 'score-b' : 'score-c';
-        return `<div class="history-item">
-          <div class="history-score ${cls}">${h.score}</div>
-          <div class="history-text">
-            <div class="history-prompt">${h.prompt}</div>
-            <div class="history-date">${h.type} · ${formatDate(h.date)} · +${h.xp} XP</div>
-          </div>
-        </div>`;
+    : recent.map(h=>{
+        const cls = h.score>=8?'score-a':h.score>=6?'score-b':'score-c';
+        const td = EXERCISE_TYPES.find(e=>e.id===h.type)||{title:h.type};
+        return `<div class="history-item"><div class="history-score ${cls}">${h.score}</div>
+          <div style="flex:1;font-size:.84rem"><div style="font-weight:500;color:var(--ink)">${h.prompt}</div>
+          <div style="font-size:.75rem;color:var(--ink-3)">${td.title} · ${formatDate(h.date)} · +${h.xp} XP</div></div></div>`;
       }).join('');
 }
 
-/* ═══════════════════════════════════════════════
+/* ═══════════════════════════════════════
    SETTINGS
-═══════════════════════════════════════════════ */
+═══════════════════════════════════════ */
 function renderSettings() {
   if (!currentUser) return;
   document.getElementById('settings-code').textContent = currentUser.code;
   document.getElementById('settings-name').textContent = currentUser.name;
-  document.getElementById('settings-apikey').value = currentUser.apiKey || '';
+  document.getElementById('settings-apikey').value = currentUser.apiKey||'';
 }
-
 function saveApiKey() {
   const key = document.getElementById('settings-apikey').value.trim();
   if (!key) { showToast('Syötä API-avain'); return; }
-  currentUser.apiKey = key;
-  saveUser();
-  showToast('API-avain tallennettu!');
+  currentUser.apiKey = key; saveUser(); showToast('API-avain tallennettu!');
 }
-
 function copyCode() {
   if (!currentUser) return;
-  navigator.clipboard.writeText(currentUser.code).then(() => showToast('Koodi kopioitu!'));
+  navigator.clipboard.writeText(currentUser.code).then(()=>showToast('Koodi kopioitu!'));
 }
-
-function confirmReset() {
-  document.getElementById('reset-modal').classList.add('open');
-}
-
-function closeModal() {
-  document.getElementById('reset-modal').classList.remove('open');
-}
-
+function confirmReset() { document.getElementById('reset-modal').classList.add('open'); }
+function closeModal() { document.getElementById('reset-modal').classList.remove('open'); }
 function doReset() {
-  currentUser.xp = 0;
-  currentUser.level = 1;
-  currentUser.streak = 0;
-  currentUser.history = [];
-  currentUser.lastActiveDay = null;
-  saveUser();
-  closeModal();
-  showToast('Historia tyhjennetty.');
-  renderSettings();
+  currentUser.xp=0;currentUser.level=1;currentUser.streak=0;currentUser.history=[];currentUser.lastActiveDay=null;
+  saveUser(); closeModal(); showToast('Historia tyhjennetty.'); renderSettings();
 }
 
-/* ═══════════════════════════════════════════════
+/* ═══════════════════════════════════════
    TOAST
-═══════════════════════════════════════════════ */
+═══════════════════════════════════════ */
 let toastTimeout;
 function showToast(msg) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
+  t.textContent = msg; t.classList.add('show');
   clearTimeout(toastTimeout);
-  toastTimeout = setTimeout(() => t.classList.remove('show'), 3000);
+  toastTimeout = setTimeout(()=>t.classList.remove('show'),3000);
 }
 
-/* ═══════════════════════════════════════════════
+/* ═══════════════════════════════════════
    INIT
-═══════════════════════════════════════════════ */
-// On load, check if user was previously logged in (no auto-login for security, but could be added)
+═══════════════════════════════════════ */
 window.addEventListener('load', () => {
-  // Animate welcome
-  const wb = document.querySelector('.auth-box');
-  if (wb) wb.style.opacity = '0', wb.style.transform = 'translateY(20px)',
-    setTimeout(() => { wb.style.transition = 'all .5s cubic-bezier(.34,1.2,.64,1)'; wb.style.opacity='1'; wb.style.transform='translateY(0)'; }, 100);
+  const ab = document.querySelector('.auth-box');
+  if (ab) { ab.style.opacity='0'; ab.style.transform='translateY(20px)';
+    setTimeout(()=>{ ab.style.transition='all .5s cubic-bezier(.34,1.2,.64,1)'; ab.style.opacity='1'; ab.style.transform='translateY(0)'; },100); }
 });
 </script>
 </body>
