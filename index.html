@@ -1012,17 +1012,23 @@ function buildGradingPrompt(typeDef, generatedData, answer) {
   // ── WORD SWAP (tayta_aukot) ──
   if (typeDef.id === 'tayta_aukot') {
     const answers = JSON.parse(answer);
-    const pairsText = answers.map(a => `"${a.original}" → "${a.replacement}"`).join('\n');
-    const blanksInfo = (generatedData.blanks||[]).map(b => `"${b.original}" (vihje: ${b.hint})`).join(', ');
+    // Build explicit per-word evaluation instructions so AI doesn't hallucinate fields
+    const wordLines = answers.map((a,i) =>
+      `Sana ${i+1}: alkuperäinen="${a.original}", opiskelijan valinta="${a.replacement}"`
+    ).join('\n');
     return { gradingMode: 'word_swap', systemPrompt: sys, userPrompt:
-`Arvioi sanaston rikastustehtävä. Opiskelija korvasi heikkoja sanoja paremmilla.
+`Arvioi sanaston rikastustehtävä. Opiskelija korvasi heikkoja sanoja rikkaammilla.
 
 ALKUPERÄINEN TEKSTI: "${generatedData.text}"
-KORVATTAVAT SANAT JA VIHJEET: ${blanksInfo}
-OPISKELIJAN VALINNAT:
-${pairsText}
 
-Arvioi jokainen sanavalinta: oliko se parempi, yhtä hyvä vai huonompi kuin alkuperäinen? Kuinka sopiva se on kontekstiin?
+ARVIOITAVAT SANAVAIHDOT (käytä TÄSMÄLLEEN näitä arvoja "original" ja "chosen" kenttiin, älä muuta niitä):
+${wordLines}
+
+TÄRKEÄÄ: "wordFeedback"-taulukossa:
+- "original"-kenttään tulee TÄSMÄLLEEN sama sana kuin yllä (esim. "huonoon")
+- "chosen"-kenttään tulee TÄSMÄLLEEN opiskelijan kirjoittama sana (esim. "kehnoon")
+- "ideal"-kenttään tulee PARAS mahdollinen korvaus tälle sanalle TÄSSÄ kontekstissa
+- ÄLÄ keksi uusia sanoja original/chosen-kenttiin
 
 Palauta JSON:
 {
@@ -1035,11 +1041,11 @@ Palauta JSON:
     {"key":"konteksti","name":"Sopivuus kontekstiin","score":<0-10>,"desc":"<palaute>"}
   ],
   "wordFeedback": [
-    {"original":"<alkuperäinen>","chosen":"<opiskelijan valinta>","ideal":"<paras mahdollinen vaihtoehto>","comment":"<miksi hyvä/huono>","rating":"good|ok|poor"}
+    {"original":"<kopioi original yllä olevasta listasta>","chosen":"<kopioi chosen yllä olevasta listasta>","ideal":"<paras vaihtoehto tälle sanalle tässä tekstissä>","comment":"<lyhyt perustelu suomeksi>","rating":"good|ok|poor"}
   ],
   "strengths": ["<vahvuus>","<vahvuus>"],
   "improvements": ["<kehityskohde>","<kehityskohde>"],
-  "exampleAnswer": "<Näytä kaikki 5 kohtaa ihanteellisilla sanakorvauksin muodossa: alkuperäinen → paras vaihtoehto>"
+  "exampleAnswer": "<Alkuperäinen teksti jossa kaikki sanat on korvattu ihanteellisilla vaihtoehdoilla>"
 }` };
   }
 
