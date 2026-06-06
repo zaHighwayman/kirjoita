@@ -813,7 +813,7 @@ function renderExerciseContent(typeDef, data) {
         <div class="blank-input-item">
           <span class="orig">${b.original}</span>
           <span class="arrow">→</span>
-          <input type="text" id="blank-${i}" placeholder="${b.hint||'Parempi sana…'}" autocomplete="off" spellcheck="false"/>
+          <input type="text" id="blank-${i}" placeholder="Parempi sana…" autocomplete="off" spellcheck="false"/>
         </div>`).join('');
       container.innerHTML = `
         <div class="prompt-card fade-in">
@@ -1001,6 +1001,276 @@ function collectAnswer(typeDef, data) {
 }
 
 /* ═══════════════════════════════════════
+   GRADING PROMPTS (task-specific)
+═══════════════════════════════════════ */
+
+// Returns { systemPrompt, userPrompt, gradingMode }
+// gradingMode: 'freetext' | 'word_swap' | 'sentence_transform' | 'order' | 'correction'
+function buildGradingPrompt(typeDef, generatedData, answer) {
+  const sys = `Olet suomen kielen ylioppilaskoelautakunnan (YTL) kokenut arvioija. Anna rakentavaa, täsmällistä palautetta. Vastaa VAIN JSON-muodossa — ei muuta tekstiä, ei markdown-merkkejä.`;
+
+  // ── WORD SWAP (tayta_aukot) ──
+  if (typeDef.id === 'tayta_aukot') {
+    const answers = JSON.parse(answer);
+    const pairsText = answers.map(a => `"${a.original}" → "${a.replacement}"`).join('\n');
+    const blanksInfo = (generatedData.blanks||[]).map(b => `"${b.original}" (vihje: ${b.hint})`).join(', ');
+    return { gradingMode: 'word_swap', systemPrompt: sys, userPrompt:
+`Arvioi sanaston rikastustehtävä. Opiskelija korvasi heikkoja sanoja paremmilla.
+
+ALKUPERÄINEN TEKSTI: "${generatedData.text}"
+KORVATTAVAT SANAT JA VIHJEET: ${blanksInfo}
+OPISKELIJAN VALINNAT:
+${pairsText}
+
+Arvioi jokainen sanavalinta: oliko se parempi, yhtä hyvä vai huonompi kuin alkuperäinen? Kuinka sopiva se on kontekstiin?
+
+Palauta JSON:
+{
+  "totalScore": <0-10>,
+  "verdict": "<Erinomainen|Hyvä|Tyydyttävä|Kehitettävää>",
+  "comment": "<max 20 sanaa>",
+  "criteria": [
+    {"key":"osuvuus","name":"Sanavalintjen osuvuus","score":<0-10>,"desc":"<palaute>"},
+    {"key":"rekisteri","name":"Rekisterin hallinta","score":<0-10>,"desc":"<palaute>"},
+    {"key":"konteksti","name":"Sopivuus kontekstiin","score":<0-10>,"desc":"<palaute>"}
+  ],
+  "wordFeedback": [
+    {"original":"<alkuperäinen>","chosen":"<opiskelijan valinta>","ideal":"<paras mahdollinen vaihtoehto>","comment":"<miksi hyvä/huono>","rating":"good|ok|poor"}
+  ],
+  "strengths": ["<vahvuus>","<vahvuus>"],
+  "improvements": ["<kehityskohde>","<kehityskohde>"],
+  "exampleAnswer": "<Näytä kaikki 5 kohtaa ihanteellisilla sanakorvauksin muodossa: alkuperäinen → paras vaihtoehto>"
+}` };
+  }
+
+  // ── SENTENCE TRANSFORM (muotoile) ──
+  if (typeDef.id === 'muotoile') {
+    const answers = JSON.parse(answer);
+    const pairsText = answers.map(a => `Alkup.: "${a.original}"\nMuotoilu: "${a.rewritten}"`).join('\n\n');
+    return { gradingMode: 'sentence_transform', systemPrompt: sys, userPrompt:
+`Arvioi lauseiden muotoilutehtävä. Opiskelija muutti arkikielen lauseet asiatyyliksi.
+
+${pairsText}
+
+Arvioi jokainen muotoilu erikseen ja kokonaisuutena.
+
+Palauta JSON:
+{
+  "totalScore": <0-10>,
+  "verdict": "<Erinomainen|Hyvä|Tyydyttävä|Kehitettävää>",
+  "comment": "<max 20 sanaa>",
+  "criteria": [
+    {"key":"asiatyyli","name":"Asiatyylin hallinta","score":<0-10>,"desc":"<palaute>"},
+    {"key":"sanasto","name":"Sanasto","score":<0-10>,"desc":"<palaute>"},
+    {"key":"kieliasu","name":"Kieliasu","score":<0-10>,"desc":"<palaute>"}
+  ],
+  "sentenceFeedback": [
+    {"original":"<arkikielinen>","rewritten":"<opiskelijan versio>","ideal":"<paras mahdollinen versio>","comment":"<palaute>"}
+  ],
+  "strengths": ["<vahvuus>","<vahvuus>"],
+  "improvements": ["<kehityskohde>","<kehityskohde>"],
+  "exampleAnswer": "<Näytä kaikki lauseet ihanteellisesti muotoiltuina>"
+}` };
+  }
+
+  // ── SENTENCE ORDER (jarjesta) ──
+  if (typeDef.id === 'jarjesta') {
+    const correctSentences = (generatedData.correctOrder||[]).map(i => (generatedData.sentences||[])[i]);
+    return { gradingMode: 'order', systemPrompt: sys, userPrompt:
+`Arvioi lauseiden järjestämistehtävä.
+
+OPISKELIJAN JÄRJESTYS: ${answer}
+OIKEA JÄRJESTYS: ${correctSentences.join(' → ')}
+
+Palauta JSON:
+{
+  "totalScore": <0-10>,
+  "verdict": "<Erinomainen|Hyvä|Tyydyttävä|Kehitettävää>",
+  "comment": "<max 20 sanaa>",
+  "criteria": [
+    {"key":"jarjestys","name":"Lauseiden järjestys","score":<0-10>,"desc":"<palaute>"},
+    {"key":"logiikka","name":"Tekstin logiikka","score":<0-10>,"desc":"<palaute>"}
+  ],
+  "orderAnalysis": "<Selitä mikä järjestys oli oikea ja miksi — kappaleen rakenne>",
+  "strengths": ["<vahvuus>"],
+  "improvements": ["<kehityskohde>","<kehityskohde>"],
+  "exampleAnswer": "<Lauseet oikeassa järjestyksessä muodostaen loogisen kappaleen>"
+}` };
+  }
+
+  // ── ERROR CORRECTION (korjaa) ──
+  if (typeDef.id === 'korjaa') {
+    return { gradingMode: 'correction', systemPrompt: sys, userPrompt:
+`Arvioi virheiden korjaustehtävä.
+
+ALKUPERÄINEN VIRHEELLINEN TEKSTI: "${generatedData.text}"
+OPISKELIJAN KORJAUS: "${answer}"
+
+Vertaa opiskelijan korjausta alkuperäiseen. Löysikö opiskelija kaikki virheet? Tekikö hän uusia virheitä?
+
+Palauta JSON:
+{
+  "totalScore": <0-10>,
+  "verdict": "<Erinomainen|Hyvä|Tyydyttävä|Kehitettävää>",
+  "comment": "<max 20 sanaa>",
+  "criteria": [
+    {"key":"virheet","name":"Virheiden löytäminen","score":<0-10>,"desc":"<montako virhettä löysi / kaikista>"},
+    {"key":"kieliasu","name":"Kieliasu korjauksessa","score":<0-10>,"desc":"<palaute>"},
+    {"key":"tarkkuus","name":"Korjausten tarkkuus","score":<0-10>,"desc":"<palaute>"}
+  ],
+  "errorAnalysis": [
+    {"error":"<alkuperäinen virhe>","studentFix":"<opiskelijan korjaus>","correctFix":"<oikea korjaus>","found":true}
+  ],
+  "strengths": ["<vahvuus>"],
+  "improvements": ["<kehityskohde>","<kehityskohde>"],
+  "exampleAnswer": "<Täydellisesti korjattu versio tekstistä>"
+}` };
+  }
+
+  // ── TRANSITIONS (siirtymä) ──
+  if (typeDef.id === 'siirtymä') {
+    const pairs = generatedData.pairs||[];
+    const answerLines = answer.split('\n');
+    const pairsText = pairs.map((p,i) => `Lause A: "${p.a}" + Lause B: "${p.b}"\nOpiskelijaversio: "${answerLines[i]||''}"`).join('\n\n');
+    return { gradingMode: 'sentence_transform', systemPrompt: sys, userPrompt:
+`Arvioi siirtymäharjoitus. Opiskelija yhdisti lauseparit siirtymäilmaisuilla.
+
+${pairsText}
+
+Palauta JSON:
+{
+  "totalScore": <0-10>,
+  "verdict": "<Erinomainen|Hyvä|Tyydyttävä|Kehitettävää>",
+  "comment": "<max 20 sanaa>",
+  "criteria": [
+    {"key":"siirtymä","name":"Siirtymäilmaisun valinta","score":<0-10>,"desc":"<palaute>"},
+    {"key":"sujuvuus","name":"Lauseen sujuvuus","score":<0-10>,"desc":"<palaute>"},
+    {"key":"kieliasu","name":"Kieliasu","score":<0-10>,"desc":"<palaute>"}
+  ],
+  "sentenceFeedback": [
+    {"original":"<pari lyhyesti>","rewritten":"<opiskelijan versio>","ideal":"<paras versio siirtymällä>","comment":"<miksi toimii/ei toimi>"}
+  ],
+  "strengths": ["<vahvuus>","<vahvuus>"],
+  "improvements": ["<kehityskohde>","<kehityskohde>"],
+  "exampleAnswer": "<Kaikki lauseparit yhdistettynä ihanteellisesti>"
+}` };
+  }
+
+  // ── SOURCE-BASED (luku_vastaus, tiivistelmä) ──
+  if (typeDef.id === 'luku_vastaus' || typeDef.id === 'tiivistelmä') {
+    const isSum = typeDef.id === 'tiivistelmä';
+    return { gradingMode: 'freetext', systemPrompt: sys, userPrompt:
+`Arvioi ${isSum ? 'tiivistelmä' : 'lukutaidon vastaus'} YTL:n kriteerien mukaan.
+
+LÄHDETEKSTI: "${generatedData.sourceText}"
+TEHTÄVÄ: "${generatedData.task||generatedData.prompt}"
+OPISKELIJAN VASTAUS: "${answer}"
+
+Palauta JSON:
+{
+  "totalScore": <0-10>,
+  "verdict": "<Erinomainen|Hyvä|Tyydyttävä|Kehitettävää>",
+  "comment": "<max 25 sanaa>",
+  "criteria": [
+    {"key":"ymmärrys","name":"Tekstin ymmärtäminen","score":<0-10>,"desc":"<palaute>"},
+    ${isSum
+      ? `{"key":"tiivistys","name":"Tiivistämisen taito","score":<0-10>,"desc":"<palaute>"},
+    {"key":"omakieli","name":"Oma kieli","score":<0-10>,"desc":"<palaute>"}`
+      : `{"key":"analyysi","name":"Analyyttisyys","score":<0-10>,"desc":"<palaute>"},
+    {"key":"viittaus","name":"Tekstiin viittaaminen","score":<0-10>,"desc":"<palaute>"}`
+    },
+    {"key":"kieliasu","name":"Kieliasu","score":<0-10>,"desc":"<palaute>"}
+  ],
+  "strengths": ["<vahvuus>","<vahvuus>"],
+  "improvements": ["<kehityskohde>","<kehityskohde>","<kehityskohde>"],
+  "annotations": [
+    {"phrase":"<lainaa fraasi opiskelijan vastauksesta>","type":"grammar|word|structure|style","suggestion":"<ehdotus>"},
+    {"phrase":"<toinen fraasi>","type":"grammar|word|structure|style","suggestion":"<ehdotus>"}
+  ],
+  "exampleAnswer": "<Esimerkkivastaus samaan tehtävään>",
+  "sentenceComparisons": [
+    {"userSentence":"<opiskelijan lause>","modelSentence":"<paranneltu>","note":"<miksi parempi>"}
+  ]
+}` };
+  }
+
+  // ── REFERENCING (luku_viittaus) ──
+  if (typeDef.id === 'luku_viittaus') {
+    const sources = (generatedData.givenSources||[]).map(s=>`${s.author} (${s.year}): "${s.keyPoint}"`).join('; ');
+    return { gradingMode: 'freetext', systemPrompt: sys, userPrompt:
+`Arvioi viittaamisharjoitus.
+
+AIHE: "${generatedData.topic}"
+KÄYTETTÄVISSÄ OLEVAT LÄHTEET: ${sources}
+OPISKELIJAN TEKSTI: "${answer}"
+
+Arvioi erityisesti viittaustekniikkaa: käyttikö opiskelija lähteitä oikein, erottiko hän oman analyysin lähteiden sisällöstä?
+
+Palauta JSON:
+{
+  "totalScore": <0-10>,
+  "verdict": "<Erinomainen|Hyvä|Tyydyttävä|Kehitettävää>",
+  "comment": "<max 25 sanaa>",
+  "criteria": [
+    {"key":"viittaus","name":"Viittaustekniikka","score":<0-10>,"desc":"<palaute>"},
+    {"key":"integrointi","name":"Lähteiden integrointi","score":<0-10>,"desc":"<palaute>"},
+    {"key":"oma_ääni","name":"Oma analyysi","score":<0-10>,"desc":"<palaute>"},
+    {"key":"kieliasu","name":"Kieliasu","score":<0-10>,"desc":"<palaute>"}
+  ],
+  "strengths": ["<vahvuus>","<vahvuus>"],
+  "improvements": ["<kehityskohde>","<kehityskohde>","<kehityskohde>"],
+  "annotations": [
+    {"phrase":"<fraasi opiskelijan tekstistä>","type":"grammar|word|structure|style","suggestion":"<ehdotus>"},
+    {"phrase":"<toinen fraasi>","type":"grammar|word|structure|style","suggestion":"<ehdotus>"}
+  ],
+  "exampleAnswer": "<Esimerkkiteksti samalla aiheella, käyttäen samoja lähteitä oikein>",
+  "sentenceComparisons": [
+    {"userSentence":"<opiskelijan lause>","modelSentence":"<paranneltu>","note":"<miksi parempi>"}
+  ]
+}` };
+  }
+
+  // ── DEFAULT FREETEXT (kirjoita, argumentoi, johdanto, paatos, vertailu, pohdinta, korjaa) ──
+  const taskDesc = buildTaskContext(typeDef, generatedData);
+  const wMin = generatedData.wordMin||60;
+  const wMax = generatedData.wordMax||300;
+  return { gradingMode: 'freetext', systemPrompt: sys, userPrompt:
+`Arvioi suomen kielen kirjoitustehtävä YTL:n virallisten kriteerien mukaan.
+
+HARJOITUSTYYPPI: ${typeDef.title}
+TEHTÄVÄ: ${taskDesc}
+OPISKELIJAN VASTAUS: "${answer}"
+
+Arvioi YTL:n viiden kriteerin mukaan (0-10):
+
+Palauta JSON:
+{
+  "totalScore": <0-10>,
+  "verdict": "<Erinomainen|Hyvä|Tyydyttävä|Kehitettävää>",
+  "comment": "<max 25 sanaa>",
+  "criteria": [
+    {"key":"sisalto","name":"Sisällön hallinta","score":<0-10>,"desc":"<1-2 lausetta>"},
+    {"key":"rakenne","name":"Tekstin rakenne","score":<0-10>,"desc":"<1-2 lausetta>"},
+    {"key":"argumentti","name":"Argumentaatio","score":<0-10>,"desc":"<1-2 lausetta>"},
+    {"key":"sanasto","name":"Sanasto ja tyyli","score":<0-10>,"desc":"<1-2 lausetta>"},
+    {"key":"kieliasu","name":"Kieliasu","score":<0-10>,"desc":"<1-2 lausetta>"}
+  ],
+  "strengths": ["<vahvuus>","<vahvuus>"],
+  "improvements": ["<kehityskohde>","<kehityskohde>","<kehityskohde>"],
+  "annotations": [
+    {"phrase":"<lainaa tarkka fraasi opiskelijan tekstistä>","type":"grammar|word|structure|style","suggestion":"<ehdotus>"},
+    {"phrase":"<toinen fraasi>","type":"grammar|word|structure|style","suggestion":"<ehdotus>"},
+    {"phrase":"<kolmas fraasi>","type":"grammar|word|structure|style","suggestion":"<ehdotus>"}
+  ],
+  "exampleAnswer": "<Esimerkkivastaus, ${wMin}-${wMax} sanaa, lukiotasoinen>",
+  "sentenceComparisons": [
+    {"userSentence":"<lause opiskelijan tekstistä>","modelSentence":"<paranneltu versio>","note":"<miksi parempi>"},
+    {"userSentence":"<toinen lause>","modelSentence":"<paranneltu>","note":"<selitys>"}
+  ]
+}` };
+}
+
+/* ═══════════════════════════════════════
    SUBMIT & GRADE
 ═══════════════════════════════════════ */
 async function submitAnswer() {
@@ -1011,59 +1281,17 @@ async function submitAnswer() {
   document.getElementById('submit-btn').style.display = 'none';
   document.getElementById('grading-indicator').style.display = 'flex';
 
-  const wordMin = generatedData.wordMin || 50;
-  const wordMax = generatedData.wordMax || 300;
-
-  const systemPrompt = `Olet kokenut suomen kielen ylioppilaskoelautakunnan (YTL) arvioija. Arvioit lukiolaisten kirjoitustehtäviä YTL:n virallisten kriteerien mukaan. Anna rakentavaa, kannustavaa ja täsmällistä palautetta. Vastaa VAIN JSON-muodossa, ei mitään muuta tekstiä.`;
-
-  const taskContext = buildTaskContext(typeDef, generatedData);
-
-  const userPrompt = `Arvioi seuraava suomen kielen harjoitustehtävä YTL:n arviointikriteerien mukaan.
-
-HARJOITUSTYYPPI: ${typeDef.title}
-TEHTÄVÄ: ${taskContext}
-OPISKELIJAN VASTAUS: """${answer}"""
-
-Arvioi YTL:n kriteerien mukaan (0-10 kukin):
-1. Sisällön hallinta (aiheen käsittely, ideat, relevanssi)
-2. Tekstin rakenne (johdanto/kehittely/päätös, koheesio, siirtymät)
-3. Argumentaatio (väitteet, perustelut, kriittinen ajattelu)
-4. Sanasto ja tyyli (rikkaus, rekisteri, täsmällisyys)
-5. Kieliasu (oikeinkirjoitus, välimerkit, lauserakenteet)
-
-Palauta TARKASTI tämä JSON (ei poikkeuksia):
-{
-  "totalScore": <kokonaispistemäärä 0-10>,
-  "verdict": "<Erinomainen|Hyvä|Tyydyttävä|Kehitettävää>",
-  "comment": "<Yleiskommentti max 25 sanaa suomeksi>",
-  "criteria": [
-    {"key":"sisalto","name":"Sisällön hallinta","score":<0-10>,"desc":"<1-2 lausetta palautetta>"},
-    {"key":"rakenne","name":"Tekstin rakenne","score":<0-10>,"desc":"<1-2 lausetta>"},
-    {"key":"argumentti","name":"Argumentaatio","score":<0-10>,"desc":"<1-2 lausetta>"},
-    {"key":"sanasto","name":"Sanasto ja tyyli","score":<0-10>,"desc":"<1-2 lausetta>"},
-    {"key":"kieliasu","name":"Kieliasu","score":<0-10>,"desc":"<1-2 lausetta>"}
-  ],
-  "strengths": ["<vahvuus 1>","<vahvuus 2>"],
-  "improvements": ["<kehityskohde 1>","<kehityskohde 2>","<kehityskohde 3>"],
-  "annotations": [
-    {"phrase":"<lainaa tarkka lause/fraasi opiskelijan tekstistä>","type":"grammar|word|structure|style","suggestion":"<korjausehdotus>"},
-    {"phrase":"<toinen kohta>","type":"grammar|word|structure|style","suggestion":"<ehdotus>"},
-    {"phrase":"<kolmas kohta>","type":"grammar|word|structure|style","suggestion":"<ehdotus>"}
-  ],
-  "exampleAnswer": "<Esimerkkivastaus tehtävään, ${wordMin}-${wordMax} sanaa, lukiotasoinen>",
-  "sentenceComparisons": [
-    {"userSentence":"<kopioi lause opiskelijan tekstistä>","modelSentence":"<paranneltu versio>","note":"<miksi parempi>"},
-    {"userSentence":"<toinen lause>","modelSentence":"<paranneltu>","note":"<selitys>"}
-  ]
-}`;
+  const { gradingMode, systemPrompt, userPrompt } = buildGradingPrompt(typeDef, generatedData, answer);
 
   let result;
   try {
     const raw = await callGroq([
-      {role:'system',content:systemPrompt},
-      {role:'user',content:userPrompt}
+      {role:'system', content:systemPrompt},
+      {role:'user', content:userPrompt}
     ], 2000, 0.3);
     result = JSON.parse(raw);
+    result._gradingMode = gradingMode;
+    result._typeId = typeDef.id;
   } catch(e) {
     document.getElementById('submit-btn').style.display = '';
     document.getElementById('grading-indicator').style.display = 'none';
@@ -1072,12 +1300,10 @@ Palauta TARKASTI tämä JSON (ei poikkeuksia):
     return;
   }
 
-  // XP
   const scoreMultiplier = result.totalScore / 10;
   const streakBonus = Math.min(currentUser.streak||0, 7) * 2;
   const xpEarned = Math.round(typeDef.xpBase * scoreMultiplier) + streakBonus;
 
-  // Save history
   currentUser.history = currentUser.history || [];
   const promptLabel = buildPromptLabel(typeDef, generatedData);
   currentUser.history.push({ type:typeDef.id, prompt:promptLabel, score:parseFloat(result.totalScore.toFixed(1)), xp:xpEarned, date:Date.now() });
@@ -1093,7 +1319,7 @@ Palauta TARKASTI tämä JSON (ei poikkeuksia):
 function buildTaskContext(typeDef, data) {
   switch(typeDef.id) {
     case 'tayta_aukot': return `Teksti: "${data.text}" | Korvattavat sanat: ${(data.blanks||[]).map(b=>b.original).join(', ')}`;
-    case 'muotoile': return `Lauseet muotoiltavaksi: ${(data.sentences||[]).map(s=>s.casual).join(' | ')}`;
+    case 'muotoile': return `Lauseet: ${(data.sentences||[]).map(s=>s.casual).join(' | ')}`;
     case 'jarjesta': return `Lauseet: ${(data.sentences||[]).join(' | ')} | Oikea järjestys: ${JSON.stringify(data.correctOrder)}`;
     case 'korjaa': return `Virheellinen teksti: "${data.text}"`;
     case 'siirtymä': return `Lauseparit: ${(data.pairs||[]).map(p=>`"${p.a}" + "${p.b}"`).join(' | ')}`;
@@ -1109,7 +1335,7 @@ function buildPromptLabel(typeDef, data) {
 }
 
 /* ═══════════════════════════════════════
-   RENDER RESULT
+   RENDER RESULT (task-aware)
 ═══════════════════════════════════════ */
 function renderResult(result, xpEarned, answer) {
   const score = parseFloat(result.totalScore);
@@ -1123,7 +1349,7 @@ function renderResult(result, xpEarned, answer) {
   document.getElementById('result-comment').textContent = result.comment||'';
   document.getElementById('xp-gained-chip').textContent = `+${xpEarned} XP ansaittu!`;
 
-  // YTL criteria bars
+  // Criteria bars
   const cl = document.getElementById('criteria-list');
   cl.innerHTML = '';
   (result.criteria||[]).forEach(c => {
@@ -1136,38 +1362,129 @@ function renderResult(result, xpEarned, answer) {
     </div>`;
   });
 
-  // Inline annotated text
-  const annotations = result.annotations||[];
-  let annotatedHtml = escapeHtml(answer||'');
-  // Apply annotations from longest to shortest to avoid nested replace issues
-  const sorted = [...annotations].sort((a,b)=>(b.phrase||'').length-(a.phrase||'').length);
-  sorted.forEach(ann => {
-    if (!ann.phrase) return;
-    const escaped = escapeHtml(ann.phrase);
-    const cls = ann.type==='grammar'?'mark-grammar':ann.type==='word'?'mark-word':ann.type==='structure'?'mark-structure':'mark-style';
-    const tip = (ann.suggestion||'').replace(/"/g,'&quot;');
-    annotatedHtml = annotatedHtml.replace(escaped,
-      `<span class="${cls} mark-tooltip" data-tip="${tip}" title="${tip}">${escaped}</span>`);
-  });
-  // Preserve line breaks
-  annotatedHtml = annotatedHtml.replace(/\n/g,'<br/>');
-  document.getElementById('annotated-text').innerHTML = annotatedHtml || '<span style="color:var(--ink-3);font-style:italic">Ei tekstiä annotoitavaksi.</span>';
+  // ── ANNOTATED TEXT — only for freetext modes ──
+  const annotationCard = document.getElementById('annotated-text').closest('.card');
+  const mode = result._gradingMode || 'freetext';
+  const typeId = result._typeId || '';
 
-  // Feedback
+  // Reset card to defaults before each render
+  annotationCard.querySelector('h3').textContent = 'Tekstisi kommentoituna';
+  annotationCard.querySelector('p').textContent = 'Korostetut kohdat kaipaavat huomiota:';
+  const legendEl = annotationCard.querySelector('.markup-legend');
+  if (legendEl) legendEl.style.display = '';
+
+  if (mode === 'freetext') {
+    annotationCard.style.display = '';
+    const annotations = result.annotations||[];
+    let annotatedHtml = escapeHtml(answer||'');
+    const sorted = [...annotations].sort((a,b)=>(b.phrase||'').length-(a.phrase||'').length);
+    sorted.forEach(ann => {
+      if (!ann.phrase) return;
+      const escaped = escapeHtml(ann.phrase);
+      const cls = ann.type==='grammar'?'mark-grammar':ann.type==='word'?'mark-word':ann.type==='structure'?'mark-structure':'mark-style';
+      const tip = (ann.suggestion||'').replace(/"/g,'&quot;');
+      annotatedHtml = annotatedHtml.replace(escaped,
+        `<span class="${cls} mark-tooltip" data-tip="${tip}" title="${tip}">${escaped}</span>`);
+    });
+    annotatedHtml = annotatedHtml.replace(/\n/g,'<br/>');
+    document.getElementById('annotated-text').innerHTML = annotatedHtml ||
+      '<span style="color:var(--ink-3);font-style:italic">Ei annotaatioita.</span>';
+
+  } else if (mode === 'word_swap') {
+    // Show word-by-word feedback table instead
+    annotationCard.style.display = '';
+    const wf = result.wordFeedback||[];
+    const ratingIcon = r => r==='good'?'✓':r==='ok'?'~':'✗';
+    const ratingColor = r => r==='good'?'var(--accent)':r==='ok'?'var(--gold)':'var(--warn)';
+    document.getElementById('annotated-text').innerHTML = wf.length ? `
+      <table style="width:100%;border-collapse:collapse;font-size:.85rem">
+        <thead><tr>
+          <th style="text-align:left;padding:8px 10px;background:var(--bg);border-bottom:2px solid var(--border);font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-2)">Alkuperäinen</th>
+          <th style="text-align:left;padding:8px 10px;background:var(--bg);border-bottom:2px solid var(--border);font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-2)">Sinun valintasi</th>
+          <th style="text-align:left;padding:8px 10px;background:var(--bg);border-bottom:2px solid var(--border);font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-2)">Ihanteellinen</th>
+          <th style="text-align:left;padding:8px 10px;background:var(--bg);border-bottom:2px solid var(--border);font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-2)">Palaute</th>
+        </tr></thead>
+        <tbody>${wf.map(w=>`<tr>
+          <td style="padding:10px;border-bottom:1px solid var(--border);font-style:italic;color:var(--ink-3)">${escapeHtml(w.original||'')}</td>
+          <td style="padding:10px;border-bottom:1px solid var(--border);font-weight:600;color:${ratingColor(w.rating)}">${ratingIcon(w.rating)} ${escapeHtml(w.chosen||'')}</td>
+          <td style="padding:10px;border-bottom:1px solid var(--border);color:var(--accent);font-style:italic">${escapeHtml(w.ideal||'')}</td>
+          <td style="padding:10px;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--ink-2)">${escapeHtml(w.comment||'')}</td>
+        </tr>`).join('')}</tbody>
+      </table>` :
+      '<span style="color:var(--ink-3);font-style:italic">Ei sanavalintojen palautetta.</span>';
+    // Hide legend for word_swap mode
+    const legend = annotationCard.querySelector('.markup-legend');
+    if (legend) legend.style.display = 'none';
+    annotationCard.querySelector('h3').textContent = 'Sanavalintojen arviointi';
+    annotationCard.querySelector('p').textContent = 'Jokainen korvaus arvioitu erikseen:';
+
+  } else if (mode === 'sentence_transform') {
+    // Show sentence-by-sentence feedback
+    annotationCard.style.display = '';
+    const sf = result.sentenceFeedback||[];
+    document.getElementById('annotated-text').innerHTML = sf.length ? sf.map(s=>`
+      <div style="margin-bottom:16px;padding:14px;background:var(--bg);border-radius:var(--r);border:1px solid var(--border)">
+        <div style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-bottom:6px">Alkuperäinen</div>
+        <div style="font-style:italic;color:var(--ink-2);margin-bottom:10px">${escapeHtml(s.original||'')}</div>
+        <div style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-bottom:6px">Sinun versioisi</div>
+        <div style="margin-bottom:10px">${escapeHtml(s.rewritten||'')}</div>
+        <div style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-bottom:6px">Ihanteellinen versio</div>
+        <div style="color:var(--accent);font-style:italic;margin-bottom:8px">${escapeHtml(s.ideal||'')}</div>
+        <div style="font-size:.82rem;color:var(--ink-2);padding-top:8px;border-top:1px solid var(--border)">${escapeHtml(s.comment||'')}</div>
+      </div>`).join('') :
+      '<span style="color:var(--ink-3);font-style:italic">Ei lausekohtaista palautetta.</span>';
+    const legend = annotationCard.querySelector('.markup-legend');
+    if (legend) legend.style.display = 'none';
+    annotationCard.querySelector('h3').textContent = 'Lausekohtainen palaute';
+    annotationCard.querySelector('p').textContent = 'Jokainen lause arvioitu erikseen:';
+
+  } else if (mode === 'order') {
+    annotationCard.style.display = '';
+    document.getElementById('annotated-text').innerHTML = `
+      <div style="font-size:.9rem;line-height:1.7;color:var(--ink)">${escapeHtml(result.orderAnalysis||'')}</div>`;
+    const legend = annotationCard.querySelector('.markup-legend');
+    if (legend) legend.style.display = 'none';
+    annotationCard.querySelector('h3').textContent = 'Järjestyksen analyysi';
+    annotationCard.querySelector('p').textContent = 'Oikea järjestys ja sen perustelut:';
+
+  } else if (mode === 'correction') {
+    annotationCard.style.display = '';
+    const ea = result.errorAnalysis||[];
+    document.getElementById('annotated-text').innerHTML = ea.length ? `
+      <table style="width:100%;border-collapse:collapse;font-size:.85rem">
+        <thead><tr>
+          <th style="text-align:left;padding:8px 10px;background:var(--bg);border-bottom:2px solid var(--border);font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-2)">Virhe</th>
+          <th style="text-align:left;padding:8px 10px;background:var(--bg);border-bottom:2px solid var(--border);font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-2)">Sinun korjauksesi</th>
+          <th style="text-align:left;padding:8px 10px;background:var(--bg);border-bottom:2px solid var(--border);font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-2)">Oikea korjaus</th>
+        </tr></thead>
+        <tbody>${ea.map(e=>`<tr>
+          <td style="padding:10px;border-bottom:1px solid var(--border);font-style:italic;color:var(--warn)">${escapeHtml(e.error||'')}</td>
+          <td style="padding:10px;border-bottom:1px solid var(--border);color:${e.found?'var(--accent)':'var(--ink-3)'}">${e.found?'✓':'-'} ${escapeHtml(e.studentFix||'')}</td>
+          <td style="padding:10px;border-bottom:1px solid var(--border);color:var(--accent);font-weight:500">${escapeHtml(e.correctFix||'')}</td>
+        </tr>`).join('')}</tbody>
+      </table>` :
+      '<span style="color:var(--ink-3);font-style:italic">Ei virheanalyysiä.</span>';
+    const legend = annotationCard.querySelector('.markup-legend');
+    if (legend) legend.style.display = 'none';
+    annotationCard.querySelector('h3').textContent = 'Virheiden analyysi';
+    annotationCard.querySelector('p').textContent = 'Löydetyt virheet ja oikeat korjaukset:';
+  }
+
+  // Feedback strengths / improvements
   document.getElementById('fb-strengths').innerHTML = (result.strengths||[]).map(s=>`<div class="fb-item fb-positive">✓ ${s}</div>`).join('');
   document.getElementById('fb-improvements').innerHTML = (result.improvements||[]).map(s=>`<div class="fb-item fb-improve">→ ${s}</div>`).join('');
 
-  // Example
+  // Example answer
   document.getElementById('example-answer').textContent = result.exampleAnswer||'–';
 
-  // Sentence comparison
+  // Sentence comparison — hide for modes that have their own comparison view
+  const compCard = document.getElementById('comparison-card');
   const comps = result.sentenceComparisons||[];
-  const tbody = document.getElementById('comparison-tbody');
-  if (!comps.length) {
-    document.getElementById('comparison-card').style.display = 'none';
+  if (!comps.length || ['word_swap','sentence_transform','order','correction'].includes(mode)) {
+    compCard.style.display = 'none';
   } else {
-    document.getElementById('comparison-card').style.display = '';
-    tbody.innerHTML = comps.map(c=>`<tr>
+    compCard.style.display = '';
+    document.getElementById('comparison-tbody').innerHTML = comps.map(c=>`<tr>
       <td class="user-sent">${escapeHtml(c.userSentence||'–')}</td>
       <td class="model-sent">${escapeHtml(c.modelSentence||'–')}</td>
       <td class="sent-note">${escapeHtml(c.note||'')}</td>
