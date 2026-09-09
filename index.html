@@ -474,10 +474,12 @@
         <label>Liitä esseet — erota ne kolmella viivalla (---) tai tyhjällä rivillä</label>
         <textarea id="ob-paste" class="writing-area" style="min-height:220px" placeholder="Liitä tähän yksi tai useampi essee…"></textarea>
       </div>
+      <div id="ob-append-note" style="display:none;background:var(--accent-l);border:1px solid rgba(45,95,63,.25);border-radius:var(--r);padding:12px 14px;margin-bottom:14px;font-size:.84rem;color:var(--ink-2);line-height:1.5"></div>
       <div class="submit-row">
         <button class="btn btn-primary" onclick="obDetect()">Tunnista esseet →</button>
         <button class="btn btn-ghost" onclick="obSkip()">Ohita</button>
       </div>
+      <p style="font-size:.78rem;color:var(--ink-3);margin-top:10px">Voit palata tähän myöhemmin Asetuksista.</p>
     </div>
 
     <div id="ob-step-tag" style="display:none">
@@ -581,6 +583,10 @@
       <div class="field-group"><label>Gemini-malli</label>
         <input id="settings-geminimodel" type="text" placeholder="gemini-2.0-flash" spellcheck="false" autocomplete="off"/></div>
       <button class="btn btn-secondary btn-sm" onclick="saveApiKey()">Tallenna</button>
+    </div>
+    <div style="margin-bottom:24px">
+      <p style="font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-bottom:10px">Korpus</p>
+      <div class="settings-row"><div><div class="label">Tuo lisää esseitä</div><div class="sub" id="settings-corpus-count">–</div></div><button class="btn btn-secondary btn-sm" onclick="openCorpusImport()">Tuo</button></div>
     </div>
     <div style="margin-bottom:24px">
       <p style="font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-bottom:10px">Tiedot</p>
@@ -2259,13 +2265,25 @@ async function obAnalyse() {
 
     const derived = deriveStartingElo(SKILL_TAXONOMY, { anchor, weakness, comments });
     await loadSkills();
-    for (const d of derived) {
-      await saveSkill({ ...getSkill(d.id), elo: d.elo, sourceEvidence: d.sourceEvidence, derivation: d.derivation });
+    // Lähtötasot kirjoitetaan vain jos harjoituksia ei ole vielä tehty. Portaikko
+    // mittaa taitoa suoraan; korpus on arvio. Arvio ei saa kumota mittausta.
+    const attemptCount = await count('attempts').catch(() => 0);
+    if (attemptCount === 0) {
+      for (const d of derived) {
+        await saveSkill({ ...getSkill(d.id), elo: d.elo, sourceEvidence: d.sourceEvidence, derivation: d.derivation });
+      }
+    } else {
+      // Näyttö talteen silti — se selittää käyttäjälle, miksi taito on listalla.
+      for (const d of derived) {
+        if (d.sourceEvidence && d.sourceEvidence.length) {
+          await saveSkill({ ...getSkill(d.id), sourceEvidence: d.sourceEvidence });
+        }
+      }
     }
     await put('meta', { key: 'corpus:derivation', value: { anchor, weakness, chrono, comments, at: new Date().toISOString() } });
     await put('meta', { key: 'corpus:done', value: true });
 
-    renderObSummary(derived, anchor, weakness, comments, chrono);
+    renderObSummary(derived, anchor, weakness, comments, chrono, attemptCount > 0);
     document.getElementById('ob-step-working').style.display = 'none';
     document.getElementById('ob-step-done').style.display = '';
 
@@ -2285,10 +2303,12 @@ function mostCommonGenre(essays) {
   return Object.keys(c).sort((a, b) => c[b] - c[a])[0] || 'muu';
 }
 
-function renderObSummary(derived, anchor, weakness, comments, chrono) {
+function renderObSummary(derived, anchor, weakness, comments, chrono, appendOnly) {
   const weakest = [...derived].sort((a, b) => a.elo - b.elo).slice(0, 5);
   const lines = [];
-  lines.push(`<div><strong>${derived.length}</strong> osataitoa alustettu ${obDrafts.length} esseen perusteella.</div>`);
+  lines.push(appendOnly
+    ? `<div><strong>${obDrafts.length}</strong> esseetä lisätty korpukseen. Lähtötasoja ei muutettu, koska harjoitushistoria on tarkempi arvio.</div>`
+    : `<div><strong>${derived.length}</strong> osataitoa alustettu ${obDrafts.length} esseen perusteella.</div>`);
   lines.push(`<div style="margin-top:8px">Arvosana-ankkuri: <strong>${anchor.elo}</strong> — ${escapeHtml(anchor.basis)}.</div>`);
   if (comments.priority && comments.priority.length) {
     lines.push(`<div style="margin-top:8px">Opettajan palautteesta nousi ${comments.priority.length} toistuvaa teemaa: ` +
@@ -2335,6 +2355,25 @@ async function queueEssayAnalysis(essays) {
       await put('essays', { ...e, llmAnalysis: a });
     } catch (err) { console.warn('Esseen analyysi epäonnistui:', e.id, err.message); break; }
   }
+}
+
+// Korpuksen sisäänotto on avattavissa uudelleen. Jos harjoituksia on jo tehty,
+// lähtötasoja EI kirjoiteta yli — portaikko on silloin jo parempi arvio kuin
+// korpuksesta johdettu luku. Esseet liitetään silti mukaan kehityskäyrään.
+async function openCorpusImport() {
+  obDrafts = [];
+  document.getElementById('ob-paste').value = '';
+  document.getElementById('ob-step-paste').style.display = '';
+  ['ob-step-tag','ob-step-working','ob-step-done'].forEach(id => document.getElementById(id).style.display = 'none');
+  const attempts = await count('attempts').catch(() => 0);
+  const note = document.getElementById('ob-append-note');
+  if (note) {
+    note.style.display = attempts > 0 ? '' : 'none';
+    note.textContent = attempts > 0
+      ? 'Olet jo harjoitellut, joten lähtötasoja ei kirjoiteta yli. Uudet esseet liitetään kehityskäyrään.'
+      : '';
+  }
+  showScreen('onboarding');
 }
 
 async function obSkip() {
@@ -2532,6 +2571,10 @@ function renderSettings() {
   const pv = currentUser.providers || {};
   document.getElementById('settings-geminikey').value = (pv.gemini && pv.gemini.key) || '';
   document.getElementById('settings-geminimodel').value = (pv.gemini && pv.gemini.model) || '';
+  count('essays').then(n => {
+    const el = document.getElementById('settings-corpus-count');
+    if (el) el.textContent = n ? `${n} tekstiä korpuksessa` : 'Ei vielä tekstejä';
+  }).catch(() => {});
 }
 function saveApiKey() {
   const key = document.getElementById('settings-apikey').value.trim();
@@ -2582,7 +2625,7 @@ Object.assign(window, {
   showScreen, goHome, startExercise, submitAnswer, nextExercise, retryExercise,
   moveItem, copyCode, saveApiKey, confirmReset, closeModal, doReset,
   switchSkillView, toggleJournal,
-  obDetect, obBack, obRemove, obMerge, obField, obAnalyse, obSkip, obFinish,
+  obDetect, obBack, obRemove, obMerge, obField, obAnalyse, obSkip, obFinish, openCorpusImport,
   startNextFromQueue,
 });
 
@@ -2596,7 +2639,7 @@ window.__kirjoita = {
   loadSkills, getSkill, saveSkill, masteredCount, isMastered, skillState,
   selectTargetSkills, eligibleSkillsFor, extractSkillEvidence, applySkillEvidence,
   cleanSkillTag, ensureUserShape, loadUser, saveUser, enterApp,
-  renderSkills, renderJournal, renderHome, generateExerciseData,
+  renderSkills, renderJournal, renderHome, generateExerciseData, openCorpusImport,
   analyzeText, RENDERERS, LEGACY_TO_RENDERER, SKILL_TAXONOMY, SKILL_BY_ID, SKILL_IDS,
   MASTERED_ELO, START_ELO, targetDifficulty, clampToBand, migrateFromLocalStorage,
   db: { getAll, get, put, putAll, clearStore, count, byIndex },
