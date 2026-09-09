@@ -1,7 +1,8 @@
 /* Testit korpusmoduulille (§4). */
 import { splitEssays, newEssay, median, gradeAnchor, metricWeakness, bandsFor,
          chronologicalCheck, clusterComments, deriveStartingElo, analyseEssay,
-         GENRES, COMMENT_PENALTY, METRIC_TO_SKILLS } from '../src/corpus.js';
+         analyseCorpus, GENRES, EXAM_TYPES, EXAM_LABELS, GENRES_BY_EXAM, EXAM_BANDS,
+         COMMENT_PENALTY, METRIC_TO_SKILLS } from '../src/corpus.js';
 import { START_ELO } from '../src/elo.js';
 
 const results = [];
@@ -54,17 +55,63 @@ export async function run() {
 
   /* ── 4c metriikkaheikkous ── */
   const flatEssays = [mk({ genre:'pohtiva', text:'Kissa istui matolla rauhassa. Koira nukkui sohvalla hiljaa. Lintu lauloi puussa kauniisti. Hiiri juoksi lattialla nopeasti.' })];
-  const w = metricWeakness(flatEssays, 'pohtiva');
+  const w = metricWeakness(flatEssays, { genre: 'pohtiva' });
   ok('heikkous: tasainen rytmi havaitaan',
      w.findings.some(f => f.metric === 'sdSentenceLength' && f.verdict === 'alle odotuksen'),
      JSON.stringify(w.findings.map(f=>f.metric)));
   ok('heikkous: säätö kohdistuu oikeaan taitoon', (w.adjustments['kie-virkerytmi'] || 0) < 0);
   ok('heikkous: alle odotuksen rankaisee enemmän kuin yli',
      Math.abs(-120) > Math.abs(-60));
-  ok('heikkous: tyhjä korpus ei kaadu', metricWeakness([], 'pohtiva').findings.length === 0);
-  ok('bands: genre ohittaa oletuksen',
-     bandsFor('referaatti').nominalisationDensity[1] > bandsFor('pohtiva').nominalisationDensity[1]);
-  ok('bands: tuntematon genre saa oletuksen', !!bandsFor('outo').sdSentenceLength);
+  ok('heikkous: tyhjä korpus ei kaadu', metricWeakness([], { genre:'pohtiva' }).findings.length === 0);
+  ok('bands: lajityyppi ohittaa oletuksen',
+     bandsFor('muu','referaatti').nominalisationDensity[1] > bandsFor('muu','pohtiva').nominalisationDensity[1]);
+  ok('bands: tuntematon saa oletuksen', !!bandsFor('outo','outo').sdSentenceLength);
+
+  /* ── Koetyypit: lukutaito vs kirjoitustaito ── */
+  ok('koe: molemmat tyypit määritelty', EXAM_TYPES.includes('lukutaito') && EXAM_TYPES.includes('kirjoitustaito'));
+  // Tämä on se väärä signaali, joka syntyi kun koetyyppiä ei ollut:
+  ok('koe: lukutaito ei vaadi montaa kappaletta',
+     bandsFor('lukutaito').paragraphCount[0] === 1, JSON.stringify(bandsFor('lukutaito').paragraphCount));
+  ok('koe: kirjoitustaito vaatii kappaleita',
+     bandsFor('kirjoitustaito').paragraphCount[0] >= 4, JSON.stringify(bandsFor('kirjoitustaito').paragraphCount));
+  ok('koe: lukutaito sallii tiiviimmän nominalisaation',
+     bandsFor('lukutaito').nominalisationDensity[1] > bandsFor('kirjoitustaito').nominalisationDensity[1]);
+  ok('koe: lajityyppivalikko rajautuu kokeeseen',
+     GENRES_BY_EXAM.lukutaito.includes('analyysi') && !GENRES_BY_EXAM.lukutaito.includes('kertova'),
+     GENRES_BY_EXAM.lukutaito.join(','));
+
+  // Kaksikappaleinen lukutaidon vastaus: ei saa näyttää heikolta kappalejaossa.
+  const shortAnswer = 'Kirjoittaja esittää, että lukutaito on muuttunut merkittävästi.\n\nTämä näkyy siinä, että huomio hajaantuu lyhyisiin katkelmiin, vaikka syvälukeminen edellyttäisi pitkäjänteisyyttä, koska ymmärrys rakentuu vähitellen.';
+  const asLuku = metricWeakness([newEssay({ text: shortAnswer, examType:'lukutaito', genre:'analyysi' })], { examType:'lukutaito' });
+  const asKirj = metricWeakness([newEssay({ text: shortAnswer, examType:'kirjoitustaito', genre:'pohtiva' })], { examType:'kirjoitustaito' });
+  ok('koe: lukutaidon vastaus ei saa kappalejakomoitetta',
+     !asLuku.findings.some(f => f.metric === 'paragraphCount'),
+     JSON.stringify(asLuku.findings.map(f=>f.metric)));
+  ok('koe: sama teksti kirjoitustaitona saa sen',
+     asKirj.findings.some(f => f.metric === 'paragraphCount'),
+     JSON.stringify(asKirj.findings.map(f=>f.metric)));
+
+  /* ── Yhdistetty korpusanalyysi ── */
+  const mixed = [
+    newEssay({ text: shortAnswer, examType:'lukutaito', genre:'analyysi', grade:5, gradeScaleMax:6, date:'2024-01-01' }),
+    newEssay({ text: shortAnswer, examType:'lukutaito', genre:'analyysi', grade:5, gradeScaleMax:6, date:'2024-02-01' }),
+    newEssay({ text: 'Kissa istui matolla rauhassa. Koira nukkui sohvalla hiljaa. Lintu lauloi puussa kauniisti.',
+               examType:'kirjoitustaito', genre:'pohtiva', grade:2, gradeScaleMax:6, date:'2024-03-01' }),
+  ];
+  const ac = analyseCorpus(mixed);
+  ok('yhdistetty: molemmat koetyypit mukana',
+     ac.present.includes('lukutaito') && ac.present.includes('kirjoitustaito'), ac.present.join(','));
+  ok('yhdistetty: vähemmistö ei putoa pois', ac.byExam.kirjoitustaito.n === 1);
+  ok('yhdistetty: ankkurit laskettu erikseen',
+     ac.byExam.lukutaito.anchor.elo !== ac.byExam.kirjoitustaito.anchor.elo,
+     ac.byExam.lukutaito.anchor.elo + ' vs ' + ac.byExam.kirjoitustaito.anchor.elo);
+  ok('yhdistetty: ankkuri painotettu määrällä',
+     ac.anchor.elo > ac.byExam.kirjoitustaito.anchor.elo && ac.anchor.elo < ac.byExam.lukutaito.anchor.elo,
+     'yhd=' + ac.anchor.elo);
+  ok('yhdistetty: ankkurin peruste kertoo kummankin', /Lukutaidon|Kirjoitustaidon/.test(ac.anchor.basis), ac.anchor.basis);
+  ok('yhdistetty: havainto merkitään koetyypillä', ac.weakness.findings.every(f => 'examType' in f));
+  ok('yhdistetty: heikkous kummasta tahansa säilyy',
+     Object.keys(ac.weakness.adjustments).length > 0, JSON.stringify(ac.weakness.adjustments));
   ok('kartoitus: jokainen metriikka osoittaa taitoihin',
      Object.values(METRIC_TO_SKILLS).every(v => Array.isArray(v) && v.length > 0));
 

@@ -620,7 +620,8 @@ import { analyzeText } from './src/metrics.js';
 import { callJSON, LlmError, PROVIDERS } from './src/provider.js';
 import { verifyAll, isGated, GATED_SKILLS, METRIC_GATES } from './src/antigaming.js';
 import { splitEssays, newEssay, gradeAnchor, metricWeakness, chronologicalCheck,
-         clusterComments, deriveStartingElo, analyseEssay, GENRES, GENRE_LABELS } from './src/corpus.js';
+         clusterComments, deriveStartingElo, analyseEssay, analyseCorpus,
+         GENRES, GENRE_LABELS, EXAM_TYPES, EXAM_LABELS, GENRES_BY_EXAM } from './src/corpus.js';
 
 /* ═══════════════════════════════════════
    CONSTANTS
@@ -958,7 +959,9 @@ async function applySkillEvidence(evidence, meta) {
   // kuukauden päästä vertailukohtana on 60+ tekstiä, ei 15 vanhaa koulutyötä.
   if (typeof meta.answer === 'string' && meta.answer.trim().split(/\s+/).length >= 60) {
     try {
-      await put('essays', newEssay({ text: meta.answer, source: 'in_app', genre: meta.genre || 'muu',
+      await put('essays', newEssay({ text: meta.answer, source: 'in_app',
+        examType: meta.renderer === 'source_response' || meta.renderer === 'summarise' ? 'lukutaito' : 'kirjoitustaito',
+        genre: meta.genre || 'muu',
         prompt: (meta.payload && meta.payload.prompt) || null,
         date: new Date().toISOString().slice(0, 10), metrics: meta.producedMetrics || undefined }));
     } catch (err) { console.warn('Korpukseen lisääminen epäonnistui:', err); }
@@ -2203,6 +2206,13 @@ function obMerge(i) {
   obDrafts.splice(i, 1);
   renderObDrafts();
 }
+// Koetyypin vaihto rajaa lajityyppivalikon, joten näkymä on piirrettävä uusiksi.
+function obExamType(i, value) {
+  obDrafts[i].examType = value;
+  const allowed = GENRES_BY_EXAM[value] || GENRES;
+  if (!allowed.includes(obDrafts[i].genre)) obDrafts[i].genre = allowed[0];
+  renderObDrafts();
+}
 function obField(i, field, value) {
   const e = obDrafts[i];
   if (field === 'grade' || field === 'gradeScaleMax') e[field] = value === '' ? null : Number(value);
@@ -2221,9 +2231,13 @@ function renderObDrafts() {
       </div>
       <div class="ob-preview">${escapeHtml(e.text.slice(0, 300))}</div>
       <div class="ob-fields">
-        <div><label>Lajityyppi *</label>
+        <div><label>Koetyyppi *</label>
+          <select onchange="obExamType(${i},this.value)">
+            ${EXAM_TYPES.map(t => `<option value="${t}"${e.examType === t ? ' selected' : ''}>${EXAM_LABELS[t]}</option>`).join('')}
+          </select></div>
+        <div><label>Lajityyppi</label>
           <select onchange="obField(${i},'genre',this.value)">
-            ${GENRES.map(g => `<option value="${g}"${e.genre === g ? ' selected' : ''}>${GENRE_LABELS[g]}</option>`).join('')}
+            ${(GENRES_BY_EXAM[e.examType] || GENRES).map(g => `<option value="${g}"${e.genre === g ? ' selected' : ''}>${GENRE_LABELS[g]}</option>`).join('')}
           </select></div>
         <div><label>Päivämäärä</label>
           <input type="date" value="${e.date || ''}" onchange="obField(${i},'date',this.value)"/></div>
@@ -2250,10 +2264,10 @@ async function obAnalyse() {
     obDrafts = obDrafts.map(e => newEssay({ ...e, metrics: analyzeText(e.text) }));
     await putAll('essays', obDrafts);
 
-    const genre = mostCommonGenre(obDrafts);
-    const anchor = gradeAnchor(obDrafts, genre);
-    const weakness = metricWeakness(obDrafts, genre);
-    const chrono = chronologicalCheck(obDrafts);
+    // Kumpikin koetyyppi omilla odotusalueillaan, kumpaakaan ei pudoteta.
+    const all = await getAll('essays');
+    const corpus = analyseCorpus(all.length ? all : obDrafts);
+    const { anchor, weakness, chrono, byExam } = corpus;
 
     // 4a on ainoa kutsu, joka tarvitaan ennen aloitusta.
     let comments = { themes: [], priority: [], n: 0 };
@@ -2280,10 +2294,10 @@ async function obAnalyse() {
         }
       }
     }
-    await put('meta', { key: 'corpus:derivation', value: { anchor, weakness, chrono, comments, at: new Date().toISOString() } });
+    await put('meta', { key: 'corpus:derivation', value: { anchor, weakness, chrono, comments, byExam, at: new Date().toISOString() } });
     await put('meta', { key: 'corpus:done', value: true });
 
-    renderObSummary(derived, anchor, weakness, comments, chrono, attemptCount > 0);
+    renderObSummary(derived, anchor, weakness, comments, chrono, attemptCount > 0, byExam);
     document.getElementById('ob-step-working').style.display = 'none';
     document.getElementById('ob-step-done').style.display = '';
 
@@ -2303,13 +2317,18 @@ function mostCommonGenre(essays) {
   return Object.keys(c).sort((a, b) => c[b] - c[a])[0] || 'muu';
 }
 
-function renderObSummary(derived, anchor, weakness, comments, chrono, appendOnly) {
+function renderObSummary(derived, anchor, weakness, comments, chrono, appendOnly, byExam) {
   const weakest = [...derived].sort((a, b) => a.elo - b.elo).slice(0, 5);
   const lines = [];
   lines.push(appendOnly
     ? `<div><strong>${obDrafts.length}</strong> esseetä lisätty korpukseen. Lähtötasoja ei muutettu, koska harjoitushistoria on tarkempi arvio.</div>`
     : `<div><strong>${derived.length}</strong> osataitoa alustettu ${obDrafts.length} esseen perusteella.</div>`);
   lines.push(`<div style="margin-top:8px">Arvosana-ankkuri: <strong>${anchor.elo}</strong> — ${escapeHtml(anchor.basis)}.</div>`);
+  if (byExam) {
+    const parts = Object.keys(byExam).filter(k => byExam[k].n > 0)
+      .map(k => `${EXAM_LABELS[k]}: ${byExam[k].n} kpl`);
+    if (parts.length > 1) lines.push(`<div style="margin-top:8px">Koetyypit arvioitu erikseen — ${parts.join(', ')}.</div>`);
+  }
   if (comments.priority && comments.priority.length) {
     lines.push(`<div style="margin-top:8px">Opettajan palautteesta nousi ${comments.priority.length} toistuvaa teemaa: ` +
       comments.priority.map(p => `<strong>${escapeHtml(p.theme)}</strong> (${p.essayCount} esseessä)`).join(', ') + '.</div>');
@@ -2625,7 +2644,7 @@ Object.assign(window, {
   showScreen, goHome, startExercise, submitAnswer, nextExercise, retryExercise,
   moveItem, copyCode, saveApiKey, confirmReset, closeModal, doReset,
   switchSkillView, toggleJournal,
-  obDetect, obBack, obRemove, obMerge, obField, obAnalyse, obSkip, obFinish, openCorpusImport,
+  obDetect, obBack, obRemove, obMerge, obField, obExamType, obAnalyse, obSkip, obFinish, openCorpusImport,
   startNextFromQueue,
 });
 

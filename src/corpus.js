@@ -13,10 +13,30 @@ import { analyzeText } from './metrics.js';
 import { callJSON } from './provider.js';
 import { START_ELO } from './elo.js';
 
-export const GENRES = ['referaatti', 'pohtiva', 'analyysi', 'kertova', 'muu'];
+/* Äidinkielen ylioppilaskoe on kaksi eri koetta, joilla on eri kriteerit ja
+ * eri odotettu muoto. Lukutaidon vastaus on lyhyt, tiivis ja aineistoon
+ * sidottu; kirjoitustaidon vastaus on pitkä, jäsennelty ja itsenäinen.
+ * Sama mittarialue ei voi koskea molempia: lukutaidon vastaus näyttäisi
+ * kirjoitustaidon mittapuulla aina liian lyhyeltä ja liian vähäkappaleiselta.
+ */
+export const EXAM_TYPES = ['lukutaito', 'kirjoitustaito', 'muu'];
+export const EXAM_LABELS = {
+  lukutaito: 'Lukutaidon vastaus',
+  kirjoitustaito: 'Kirjoitustaidon vastaus',
+  muu: 'Muu / kurssityö',
+};
+
+export const GENRES = ['referaatti', 'pohtiva', 'analyysi', 'kantaaottava', 'kertova', 'muu'];
 export const GENRE_LABELS = {
   referaatti: 'Referaatti', pohtiva: 'Pohtiva', analyysi: 'Analyysi',
-  kertova: 'Kertova', muu: 'Muu',
+  kantaaottava: 'Kantaaottava', kertova: 'Kertova', muu: 'Muu',
+};
+
+/** Kummassakin kokeessa esiintyvät lajityypit. */
+export const GENRES_BY_EXAM = {
+  lukutaito:      ['analyysi', 'referaatti', 'muu'],
+  kirjoitustaito: ['pohtiva', 'kantaaottava', 'kertova', 'muu'],
+  muu:            GENRES,
 };
 
 /* ── Esseiden erottelu liitetystä tekstistä ─────────────────────────────── */
@@ -40,6 +60,7 @@ export function newEssay(fields) {
     id: fields.id || `es_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
     text: fields.text || '',
     source: fields.source || 'pasted',
+    examType: fields.examType || 'muu',
     genre: fields.genre || 'muu',
     prompt: fields.prompt || null,
     date: fields.date || new Date().toISOString().slice(0, 10),
@@ -64,8 +85,13 @@ export function median(nums) {
  * Arvosanoja EI korreloida metriikoihin: n = 15 tuottaisi itsevarmaa hölynpölyä.
  * Asteikko normalisoidaan esseekohtaisesti, koska asteikot vaihtelevat.
  */
-export function gradeAnchor(essays, genre) {
-  const pool = (genre ? essays.filter(e => e.genre === genre) : essays)
+export function gradeAnchor(essays, scope) {
+  // Lukutaidon ja kirjoitustaidon pisteet eivät ole sama asteikko eivätkä
+  // samasta kokeesta, joten niitä ei mediaanoida yhteen.
+  const { examType = null, genre = null } = typeof scope === 'string' ? { genre: scope } : (scope || {});
+  const pool = essays
+    .filter(e => !examType || e.examType === examType)
+    .filter(e => !genre || e.genre === genre)
     .filter(e => typeof e.grade === 'number' && e.gradeScaleMax > 0)
     .map(e => e.grade / e.gradeScaleMax);
   const med = median(pool);
@@ -78,8 +104,13 @@ export function gradeAnchor(essays, genre) {
 }
 
 /* ── 4c. Metriikat: suhteellinen heikkous ───────────────────────────────── */
-/** YTL:n hyvän vastauksen piirteitä vastaavat karkeat odotusalueet lajityypeittäin. */
-export const GENRE_BANDS = {
+/**
+ * Odotusalueet kokeittain. Lukutaidon vastaus on tyypillisesti 1-3 kappaletta
+ * ja muutama sata sanaa; kirjoitustaidon vastaus moninkertainen. Kappalemäärän
+ * vaatiminen lukutaidon vastaukselta tuottaisi väärän heikkoussignaalin
+ * rak-kappalejako-taidolle joka ainoasta vastauksesta.
+ */
+export const EXAM_BANDS = {
   _default: {
     sdSentenceLength:     [4, 11],
     meanSentenceLength:   [11, 22],
@@ -91,11 +122,36 @@ export const GENRE_BANDS = {
     lauseenvastikeTotal:  [1, 99],
     passiveRatio:         [0, 0.40],
   },
-  referaatti: { nominalisationDensity: [15, 70], meanSentenceLength: [12, 24], paragraphCount: [2, 99] },
-  kertova:    { nominalisationDensity: [2, 35], sdSentenceLength: [5, 14] },
+  lukutaito: {
+    // Tiivis, aineistoon nojaava, usein yksi tai kaksi kappaletta.
+    paragraphCount:       [1, 99],
+    subordinatorTypes:    [2, 99],
+    nominalisationDensity:[12, 70],
+    meanSentenceLength:   [12, 24],
+    lauseenvastikeTotal:  [0, 99],
+    mtld:                 [45, 200],
+  },
+  kirjoitustaito: {
+    paragraphCount:       [4, 99],
+    subordinatorTypes:    [3, 99],
+    sdSentenceLength:     [4, 12],
+  },
 };
-export function bandsFor(genre) {
-  return { ...GENRE_BANDS._default, ...(GENRE_BANDS[genre] || {}) };
+
+/** Lajityyppikohtaiset tarkennukset kokeen alueiden päälle. */
+export const GENRE_BANDS = {
+  referaatti:   { nominalisationDensity: [15, 70], meanSentenceLength: [12, 24], paragraphCount: [1, 99] },
+  kertova:      { nominalisationDensity: [2, 35], sdSentenceLength: [5, 14] },
+  kantaaottava: { subordinatorTypes: [4, 99] },
+};
+
+/** Kokeen alue pohjaksi, lajityyppi päälle. */
+export function bandsFor(examType, genre) {
+  return {
+    ...EXAM_BANDS._default,
+    ...(EXAM_BANDS[examType] || {}),
+    ...(GENRE_BANDS[genre] || {}),
+  };
 }
 
 /** Mikä metriikka kertoo mistäkin osataidosta. Yksi metriikka voi koskea useaa. */
@@ -116,10 +172,14 @@ export const METRIC_TO_SKILLS = {
  * Alle alueen → taito heikko (negatiivinen säätö). Yli ylärajan → myös poikkeama
  * (esim. nominalisaatiotykitys), mutta lievempi.
  */
-export function metricWeakness(essays, genre) {
-  const pool = (genre ? essays.filter(e => e.genre === genre) : essays).filter(e => e.metrics);
+export function metricWeakness(essays, scope) {
+  const { examType = null, genre = null } = typeof scope === 'string' ? { genre: scope } : (scope || {});
+  const pool = essays
+    .filter(e => !examType || e.examType === examType)
+    .filter(e => !genre || e.genre === genre)
+    .filter(e => e.metrics);
   if (!pool.length) return { adjustments: {}, findings: [] };
-  const bands = bandsFor(genre);
+  const bands = bandsFor(examType, genre);
   const adjustments = {}, findings = [];
 
   for (const [metric, [lo, hi]] of Object.entries(bands)) {
@@ -129,11 +189,54 @@ export function metricWeakness(essays, genre) {
     if (med < lo) { adj = -120; verdict = 'alle odotuksen'; }
     else if (med > hi) { adj = -60; verdict = 'yli odotuksen'; }
     if (adj) {
-      findings.push({ metric, median: med, band: [lo, hi], verdict, skills: METRIC_TO_SKILLS[metric] || [] });
+      findings.push({ metric, median: med, band: [lo, hi], verdict, examType,
+                      skills: METRIC_TO_SKILLS[metric] || [] });
       (METRIC_TO_SKILLS[metric] || []).forEach(s => { adjustments[s] = Math.min(adjustments[s] ?? 0, adj); });
     }
   }
   return { adjustments, findings, n: pool.length };
+}
+
+/**
+ * Koko korpus kerralla, kumpikin koe omilla odotusalueillaan.
+ *
+ * Aiemmin derivointi ajettiin vain yleisimmälle lajityypille, jolloin
+ * vähemmistöön jäänyt koetyyppi putosi kokonaan pois. Nyt kumpikin analysoidaan
+ * erikseen ja tulokset yhdistetään: heikkous kummassa tahansa kokeessa on
+ * heikkous, ja ankkuri painotetaan esseiden määrällä.
+ */
+export function analyseCorpus(essays) {
+  const present = [...new Set(essays.map(e => e.examType || 'muu'))];
+  const byExam = {};
+  let weightedSum = 0, weightTotal = 0;
+  const merged = {};
+  const allFindings = [];
+
+  for (const ex of present) {
+    const subset = essays.filter(e => (e.examType || 'muu') === ex);
+    const anchor = gradeAnchor(subset, { examType: ex });
+    const weakness = metricWeakness(subset, { examType: ex });
+    byExam[ex] = { n: subset.length, anchor, weakness };
+    if (anchor.n > 0) { weightedSum += anchor.elo * anchor.n; weightTotal += anchor.n; }
+    // Heikkous kummassa tahansa kokeessa painaa: otetaan ankarin säätö.
+    for (const [skill, adj] of Object.entries(weakness.adjustments)) {
+      merged[skill] = Math.min(merged[skill] ?? 0, adj);
+    }
+    allFindings.push(...weakness.findings);
+  }
+
+  const combinedAnchor = weightTotal > 0
+    ? { elo: Math.round(weightedSum / weightTotal), n: weightTotal,
+        basis: present.filter(e => byExam[e].anchor.n > 0)
+                      .map(e => `${EXAM_LABELS[e]}: ${byExam[e].anchor.basis}`).join('; ') }
+    : { elo: START_ELO, n: 0, basis: 'ei arvosanoja' };
+
+  return {
+    byExam, present,
+    anchor: combinedAnchor,
+    weakness: { adjustments: merged, findings: allFindings, n: essays.length },
+    chrono: chronologicalCheck(essays),
+  };
 }
 
 /* ── 4d. Kronologia ─────────────────────────────────────────────────────── */
