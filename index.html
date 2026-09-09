@@ -388,7 +388,7 @@
 
     <div class="score-hero fade-in">
       <div class="score-ring" id="result-ring"><span id="result-score-num">–</span></div>
-      <div style="font-size:.82rem;color:var(--ink-3);margin-bottom:5px">Kokonaispisteet 10:stä</div>
+      <div style="font-size:.82rem;color:var(--ink-3);margin-bottom:5px" id="result-scale">–</div>
       <div class="score-verdict" id="result-verdict"></div>
       <div class="score-comment" id="result-comment"></div>
       <div class="xp-gained" id="xp-gained-chip">+0 XP</div>
@@ -615,7 +615,10 @@ import { openDb, put, putAll, get, getAll, byIndex, del, clearStore, count, newI
          migrateFromLocalStorage, strengthToElo } from './src/db.js';
 import { START_ELO, expectedScore, targetDifficulty, applyAttempt, buildServeQueue,
          isOverdue, overdueDays } from './src/elo.js';
-import { RENDERERS, RENDERER_IDS, LEGACY_TO_RENDERER, renderersForSkill, clampToBand } from './src/renderers.js';
+import { RENDERERS, RENDERER_IDS, LEGACY_TO_RENDERER, renderersForSkill, clampToBand,
+         examForRenderer } from './src/renderers.js';
+import { YTL_EXAMS, examSpec, criteriaFor, allowedPoints, snapToScale, levelOf,
+         pointsToResult, levelLabel, totalFromCriteria, ytlCriterionFor } from './src/ytl.js';
 import { analyzeText } from './src/metrics.js';
 import { callJSON, LlmError, PROVIDERS } from './src/provider.js';
 import { verifyAll, isGated, GATED_SKILLS, METRIC_GATES } from './src/antigaming.js';
@@ -1152,8 +1155,9 @@ function renderHome() {
     ? '<div class="empty-state"><div class="big">✍️</div><p>Ei vielä harjoituksia. Aloita ensimmäinen!</p></div>'
     : recent.map(h => {
         const cls = h.score>=8?'score-a':h.score>=6?'score-b':'score-c';
+        const shown = typeof h.points === 'number' ? h.points : h.score;
         const typeDef = EXERCISE_TYPES.find(e=>e.id===h.type)||{title:h.type};
-        return `<div class="history-item"><div class="history-score ${cls}">${h.score}</div>
+        return `<div class="history-item"><div class="history-score ${cls}">${shown}</div>
           <div style="flex:1;font-size:.84rem"><div style="font-weight:500;color:var(--ink)">${h.prompt||'Harjoitus'}</div>
           <div style="font-size:.75rem;color:var(--ink-3)">${typeDef.title} · ${formatDate(h.date)} · +${h.xp} XP</div></div></div>`;
       }).join('');
@@ -1551,6 +1555,15 @@ function collectAnswer(typeDef, data) {
 // Returns { systemPrompt, userPrompt, gradingMode }
 // gradingMode: 'freetext' | 'word_swap' | 'sentence_transform' | 'order' | 'correction'
 function buildGradingPrompt(typeDef, generatedData, answer) {
+  // Arvostelu tapahtuu sen kokeen kriteereillä ja asteikolla, jota tehtävä harjoittaa.
+  const examType = examForRenderer(LEGACY_TO_RENDERER[typeDef.id] || 'free_production');
+  const spec = examSpec(examType);
+  const maxPoints = spec.defaultMax;
+  const allowed = allowedPoints(maxPoints).join(', ');
+  const critSpec = '[\n' + spec.criteria.map(c =>
+    `    {"key":"${c.key}","name":"${c.name}","points":<${allowed}>,"desc":"<1-2 lausetta suomeksi>"}` +
+    (c.weighted ? '  // painotettu kriteeri' : '')).join(',\n') + '\n  ]';
+
   // Tehtävä rakennettiin näiden taitojen ympärille — arvioinnin on otettava niihin kantaa,
   // muuten kohdennettu harjoitus ei tuota näyttöä juuri siitä taidosta.
   const focus = (generatedData && generatedData._targets || []).filter(id => SKILL_BY_ID[id]);
@@ -1560,6 +1573,12 @@ TÄMÄ TEHTÄVÄ HARJOITTI ERITYISESTI: ${focus.map(id => `${id} (${SKILL_BY_ID[
 Ota jokaiseen näistä kantaa: joko merkitse virhe skillTagilla tai listaa taito skillsClean-kenttään. Älä pakota arviota — jos opiskelija ei käyttänyt taitoa lainkaan, jätä se pois molemmista.` : '';
 
   const sys = `Olet suomen kielen ylioppilaskoelautakunnan (YTL) kokenut arvioija. Anna rakentavaa, täsmällistä palautetta. Vastaa VAIN JSON-muodossa — ei muuta tekstiä, ei markdown-merkkejä.
+
+ARVOSTELU. Arvostele ${spec.labelGen} kriteereillä. Arvostelukohteet ovat:
+${spec.criteria.map(c => `- ${c.name}${c.weighted ? ' (PAINOTETTU)' : ''}`).join('\n')}
+Pisteytä JOKAINEN kohde asteikolla, jonka sallitut arvot ovat: ${allowed}. Älä käytä muita arvoja.
+Painotetut kohteet vaikuttavat kokonaispisteisiin kaksinkertaisesti.
+"points" on koko suorituksen pistemäärä samalta asteikolta.
 
 TAITOLUOKITTELU. Jokainen "skillTag"-kenttä on täytettävä TÄSMÄLLEEN yhdellä alla olevista tunnisteista. Käytä tunnistetta (esim. kie-kongruenssi), älä suomenkielistä nimeä. Älä keksi uusia tunnisteita. Jos havainto ei sovi mihinkään taitoon, jätä koko havainto pois.
 ${SKILL_MENU}
@@ -1573,7 +1592,7 @@ ${SKILL_MENU}
     const wordLines = answers.map((a,i) =>
       `Sana ${i+1}: alkuperäinen="${a.original}", opiskelijan valinta="${a.replacement}"`
     ).join('\n');
-    return { gradingMode: 'word_swap', systemPrompt: sys, userPrompt:
+    return { gradingMode: 'word_swap', examType, maxPoints, systemPrompt: sys, userPrompt:
 `Arvioi sanaston rikastustehtävä. Opiskelija korvasi heikkoja sanoja rikkaammilla.
 
 ALKUPERÄINEN TEKSTI: "${generatedData.text}"
@@ -1589,14 +1608,10 @@ TÄRKEÄÄ: "wordFeedback"-taulukossa:
 
 Palauta JSON:
 {
-  "totalScore": <0-10>,
+  "points": <yksi sallituista pistearvoista: ${allowed}>,
   "verdict": "<Erinomainen|Hyvä|Tyydyttävä|Kehitettävää>",
   "comment": "<max 20 sanaa>",
-  "criteria": [
-    {"key":"osuvuus","name":"Sanavalintjen osuvuus","score":<0-10>,"desc":"<palaute>"},
-    {"key":"rekisteri","name":"Rekisterin hallinta","score":<0-10>,"desc":"<palaute>"},
-    {"key":"konteksti","name":"Sopivuus kontekstiin","score":<0-10>,"desc":"<palaute>"}
-  ],
+  "criteria": ${critSpec},
   "wordFeedback": [
     {"original":"<kopioi original yllä olevasta listasta>","chosen":"<kopioi chosen yllä olevasta listasta>","ideal":"<paras vaihtoehto tälle sanalle tässä tekstissä>","comment":"<lyhyt perustelu suomeksi>","rating":"good|ok|poor","skillTag":"<taito-id>"}
   ],
@@ -1611,7 +1626,7 @@ Palauta JSON:
   if (typeDef.id === 'muotoile') {
     const answers = JSON.parse(answer);
     const pairsText = answers.map(a => `Alkup.: "${a.original}"\nMuotoilu: "${a.rewritten}"`).join('\n\n');
-    return { gradingMode: 'sentence_transform', systemPrompt: sys, userPrompt:
+    return { gradingMode: 'sentence_transform', examType, maxPoints, systemPrompt: sys, userPrompt:
 `Arvioi lauseiden muotoilutehtävä. Opiskelija muutti arkikielen lauseet asiatyyliksi.
 
 ${pairsText}
@@ -1620,14 +1635,10 @@ Arvioi jokainen muotoilu erikseen ja kokonaisuutena.
 
 Palauta JSON:
 {
-  "totalScore": <0-10>,
+  "points": <yksi sallituista pistearvoista: ${allowed}>,
   "verdict": "<Erinomainen|Hyvä|Tyydyttävä|Kehitettävää>",
   "comment": "<max 20 sanaa>",
-  "criteria": [
-    {"key":"asiatyyli","name":"Asiatyylin hallinta","score":<0-10>,"desc":"<palaute>"},
-    {"key":"sanasto","name":"Sanasto","score":<0-10>,"desc":"<palaute>"},
-    {"key":"kieliasu","name":"Kieliasu","score":<0-10>,"desc":"<palaute>"}
-  ],
+  "criteria": ${critSpec},
   "sentenceFeedback": [
     {"original":"<arkikielinen>","rewritten":"<opiskelijan versio>","ideal":"<paras mahdollinen versio>","comment":"<palaute>","skillTag":"<taito-id>"}
   ],
@@ -1641,7 +1652,7 @@ Palauta JSON:
   // ── SENTENCE ORDER (jarjesta) ──
   if (typeDef.id === 'jarjesta') {
     const correctSentences = (generatedData.correctOrder||[]).map(i => (generatedData.sentences||[])[i]);
-    return { gradingMode: 'order', systemPrompt: sys, userPrompt:
+    return { gradingMode: 'order', examType, maxPoints, systemPrompt: sys, userPrompt:
 `Arvioi lauseiden järjestämistehtävä.
 
 OPISKELIJAN JÄRJESTYS: ${answer}
@@ -1649,13 +1660,10 @@ OIKEA JÄRJESTYS: ${correctSentences.join(' → ')}
 
 Palauta JSON:
 {
-  "totalScore": <0-10>,
+  "points": <yksi sallituista pistearvoista: ${allowed}>,
   "verdict": "<Erinomainen|Hyvä|Tyydyttävä|Kehitettävää>",
   "comment": "<max 20 sanaa>",
-  "criteria": [
-    {"key":"jarjestys","name":"Lauseiden järjestys","score":<0-10>,"desc":"<palaute>"},
-    {"key":"logiikka","name":"Tekstin logiikka","score":<0-10>,"desc":"<palaute>"}
-  ],
+  "criteria": ${critSpec},
   "orderAnalysis": "<Selitä mikä järjestys oli oikea ja miksi — kappaleen rakenne>",
   "skillFindings": [{"skillTag":"<taito-id>","evidence":"<mikä meni pieleen>","fix":"<miten se korjataan>"}],
   "strengths": ["<vahvuus>"],
@@ -1667,7 +1675,7 @@ Palauta JSON:
 
   // ── ERROR CORRECTION (korjaa) ──
   if (typeDef.id === 'korjaa') {
-    return { gradingMode: 'correction', systemPrompt: sys, userPrompt:
+    return { gradingMode: 'correction', examType, maxPoints, systemPrompt: sys, userPrompt:
 `Arvioi virheiden korjaustehtävä.
 
 ALKUPERÄINEN VIRHEELLINEN TEKSTI: "${generatedData.text}"
@@ -1677,14 +1685,10 @@ Vertaa opiskelijan korjausta alkuperäiseen. Löysikö opiskelija kaikki virheet
 
 Palauta JSON:
 {
-  "totalScore": <0-10>,
+  "points": <yksi sallituista pistearvoista: ${allowed}>,
   "verdict": "<Erinomainen|Hyvä|Tyydyttävä|Kehitettävää>",
   "comment": "<max 20 sanaa>",
-  "criteria": [
-    {"key":"virheet","name":"Virheiden löytäminen","score":<0-10>,"desc":"<montako virhettä löysi / kaikista>"},
-    {"key":"kieliasu","name":"Kieliasu korjauksessa","score":<0-10>,"desc":"<palaute>"},
-    {"key":"tarkkuus","name":"Korjausten tarkkuus","score":<0-10>,"desc":"<palaute>"}
-  ],
+  "criteria": ${critSpec},
   "errorAnalysis": [
     {"error":"<alkuperäinen virhe>","studentFix":"<opiskelijan korjaus>","correctFix":"<oikea korjaus>","found":true,"skillTag":"<taito-id>"}
   ],
@@ -1700,21 +1704,17 @@ Palauta JSON:
     const pairs = generatedData.pairs||[];
     const answerLines = answer.split('\n');
     const pairsText = pairs.map((p,i) => `Lause A: "${p.a}" + Lause B: "${p.b}"\nOpiskelijaversio: "${answerLines[i]||''}"`).join('\n\n');
-    return { gradingMode: 'sentence_transform', systemPrompt: sys, userPrompt:
+    return { gradingMode: 'sentence_transform', examType, maxPoints, systemPrompt: sys, userPrompt:
 `Arvioi siirtymäharjoitus. Opiskelija yhdisti lauseparit siirtymäilmaisuilla.
 
 ${pairsText}
 
 Palauta JSON:
 {
-  "totalScore": <0-10>,
+  "points": <yksi sallituista pistearvoista: ${allowed}>,
   "verdict": "<Erinomainen|Hyvä|Tyydyttävä|Kehitettävää>",
   "comment": "<max 20 sanaa>",
-  "criteria": [
-    {"key":"siirtymä","name":"Siirtymäilmaisun valinta","score":<0-10>,"desc":"<palaute>"},
-    {"key":"sujuvuus","name":"Lauseen sujuvuus","score":<0-10>,"desc":"<palaute>"},
-    {"key":"kieliasu","name":"Kieliasu","score":<0-10>,"desc":"<palaute>"}
-  ],
+  "criteria": ${critSpec},
   "sentenceFeedback": [
     {"original":"<pari lyhyesti>","rewritten":"<opiskelijan versio>","ideal":"<paras versio siirtymällä>","comment":"<miksi toimii/ei toimi>","skillTag":"<taito-id>"}
   ],
@@ -1728,7 +1728,7 @@ Palauta JSON:
   // ── SOURCE-BASED (luku_vastaus, tiivistelmä) ──
   if (typeDef.id === 'luku_vastaus' || typeDef.id === 'tiivistelmä') {
     const isSum = typeDef.id === 'tiivistelmä';
-    return { gradingMode: 'freetext', systemPrompt: sys, userPrompt:
+    return { gradingMode: 'freetext', examType, maxPoints, systemPrompt: sys, userPrompt:
 `Arvioi ${isSum ? 'tiivistelmä' : 'lukutaidon vastaus'} YTL:n kriteerien mukaan.
 
 LÄHDETEKSTI: "${generatedData.sourceText}"
@@ -1737,19 +1737,10 @@ OPISKELIJAN VASTAUS: "${answer}"
 
 Palauta JSON:
 {
-  "totalScore": <0-10>,
+  "points": <yksi sallituista pistearvoista: ${allowed}>,
   "verdict": "<Erinomainen|Hyvä|Tyydyttävä|Kehitettävää>",
   "comment": "<max 25 sanaa>",
-  "criteria": [
-    {"key":"ymmärrys","name":"Tekstin ymmärtäminen","score":<0-10>,"desc":"<palaute>"},
-    ${isSum
-      ? `{"key":"tiivistys","name":"Tiivistämisen taito","score":<0-10>,"desc":"<palaute>"},
-    {"key":"omakieli","name":"Oma kieli","score":<0-10>,"desc":"<palaute>"}`
-      : `{"key":"analyysi","name":"Analyyttisyys","score":<0-10>,"desc":"<palaute>"},
-    {"key":"viittaus","name":"Tekstiin viittaaminen","score":<0-10>,"desc":"<palaute>"}`
-    },
-    {"key":"kieliasu","name":"Kieliasu","score":<0-10>,"desc":"<palaute>"}
-  ],
+  "criteria": ${critSpec},
   "strengths": ["<vahvuus>","<vahvuus>"],
   "improvements": ["<kehityskohde>","<kehityskohde>","<kehityskohde>"],
   "skillsClean": ["<taito-id jonka opiskelija hallitsi tässä hyvin>"],
@@ -1767,7 +1758,7 @@ Palauta JSON:
   // ── REFERENCING (luku_viittaus) ──
   if (typeDef.id === 'luku_viittaus') {
     const sources = (generatedData.givenSources||[]).map(s=>`${s.author} (${s.year}): "${s.keyPoint}"`).join('; ');
-    return { gradingMode: 'freetext', systemPrompt: sys, userPrompt:
+    return { gradingMode: 'freetext', examType, maxPoints, systemPrompt: sys, userPrompt:
 `Arvioi viittaamisharjoitus.
 
 AIHE: "${generatedData.topic}"
@@ -1778,15 +1769,10 @@ Arvioi erityisesti viittaustekniikkaa: käyttikö opiskelija lähteitä oikein, 
 
 Palauta JSON:
 {
-  "totalScore": <0-10>,
+  "points": <yksi sallituista pistearvoista: ${allowed}>,
   "verdict": "<Erinomainen|Hyvä|Tyydyttävä|Kehitettävää>",
   "comment": "<max 25 sanaa>",
-  "criteria": [
-    {"key":"viittaus","name":"Viittaustekniikka","score":<0-10>,"desc":"<palaute>"},
-    {"key":"integrointi","name":"Lähteiden integrointi","score":<0-10>,"desc":"<palaute>"},
-    {"key":"oma_ääni","name":"Oma analyysi","score":<0-10>,"desc":"<palaute>"},
-    {"key":"kieliasu","name":"Kieliasu","score":<0-10>,"desc":"<palaute>"}
-  ],
+  "criteria": ${critSpec},
   "strengths": ["<vahvuus>","<vahvuus>"],
   "improvements": ["<kehityskohde>","<kehityskohde>","<kehityskohde>"],
   "skillsClean": ["<taito-id jonka opiskelija hallitsi tässä hyvin>"],
@@ -1805,7 +1791,7 @@ Palauta JSON:
   const taskDesc = buildTaskContext(typeDef, generatedData);
   const wMin = generatedData.wordMin||60;
   const wMax = generatedData.wordMax||300;
-  return { gradingMode: 'freetext', systemPrompt: sys, userPrompt:
+  return { gradingMode: 'freetext', examType, maxPoints, systemPrompt: sys, userPrompt:
 `Arvioi suomen kielen kirjoitustehtävä YTL:n virallisten kriteerien mukaan.
 
 HARJOITUSTYYPPI: ${typeDef.title}
@@ -1816,16 +1802,10 @@ Arvioi YTL:n viiden kriteerin mukaan (0-10):
 
 Palauta JSON:
 {
-  "totalScore": <0-10>,
+  "points": <yksi sallituista pistearvoista: ${allowed}>,
   "verdict": "<Erinomainen|Hyvä|Tyydyttävä|Kehitettävää>",
   "comment": "<max 25 sanaa>",
-  "criteria": [
-    {"key":"sisalto","name":"Sisällön hallinta","score":<0-10>,"desc":"<1-2 lausetta>"},
-    {"key":"rakenne","name":"Tekstin rakenne","score":<0-10>,"desc":"<1-2 lausetta>"},
-    {"key":"argumentti","name":"Argumentaatio","score":<0-10>,"desc":"<1-2 lausetta>"},
-    {"key":"sanasto","name":"Sanasto ja tyyli","score":<0-10>,"desc":"<1-2 lausetta>"},
-    {"key":"kieliasu","name":"Kieliasu","score":<0-10>,"desc":"<1-2 lausetta>"}
-  ],
+  "criteria": ${critSpec},
   "strengths": ["<vahvuus>","<vahvuus>"],
   "improvements": ["<kehityskohde>","<kehityskohde>","<kehityskohde>"],
   "skillsClean": ["<taito-id jonka opiskelija hallitsi tässä hyvin>"],
@@ -1853,7 +1833,7 @@ async function submitAnswer() {
   document.getElementById('submit-btn').style.display = 'none';
   document.getElementById('grading-indicator').style.display = 'flex';
 
-  const { gradingMode, systemPrompt, userPrompt } = buildGradingPrompt(typeDef, generatedData, answer);
+  const { gradingMode, examType, maxPoints, systemPrompt, userPrompt } = buildGradingPrompt(typeDef, generatedData, answer);
 
   let result;
   try {
@@ -1865,6 +1845,14 @@ async function submitAnswer() {
     ], { role: 'analysis', config: llmConfig(), maxTokens: 6000, temperature: 0.3 });
     result._gradingMode = gradingMode;
     result._typeId = typeDef.id;
+    result._examType = examType;
+    result._maxPoints = maxPoints;
+    // Malli antaa toisinaan väliarvoja; YTL:n asteikolla niitä ei ole olemassa.
+    (result.criteria || []).forEach(c => { c.points = snapToScale(c.points, maxPoints); });
+    result.points = result.criteria && result.criteria.length
+      ? totalFromCriteria(result.criteria, examType, maxPoints)
+      : snapToScale(result.points, maxPoints);
+    result.level = levelOf(result.points, maxPoints);
   } catch(e) {
     // Vastaus jää tekstikenttään — käyttäjän ei tarvitse kirjoittaa uudelleen.
     document.getElementById('submit-btn').style.display = '';
@@ -1874,7 +1862,7 @@ async function submitAnswer() {
     return;
   }
 
-  const scoreMultiplier = result.totalScore / 10;
+  const scoreMultiplier = pointsToResult(result.points, maxPoints);
   const streakBonus = Math.min(currentUser.streak||0, 7) * 2;
   const xpEarned = Math.round(typeDef.xpBase * scoreMultiplier) + streakBonus;
 
@@ -1891,7 +1879,8 @@ async function submitAnswer() {
       primarySkill: generatedData._primarySkill || (evidence.errors[0] || {}).skillId || SKILL_IDS[0],
       difficulty: generatedData._difficulty ?? START_ELO,
       targets: generatedData._targets || [],
-      totalScore: result.totalScore,
+      totalScore: pointsToResult(result.points, maxPoints) * 10,
+      examType,
       answer: typeof answer === 'string' ? answer : null,
       llmConfig: llmConfig(),
       // Deterministinen mittaus opiskelijan omasta tuotoksesta — ei API-kutsuja.
@@ -1905,13 +1894,16 @@ async function submitAnswer() {
   }
 
   currentUser.history.push({
-    type:typeDef.id, prompt:promptLabel, score:parseFloat(result.totalScore.toFixed(1)),
+    type:typeDef.id, prompt:promptLabel,
+    points: result.points, maxPoints, examType,
+    // score 0-10 säilytetään, jotta vanha historia ja uusi ovat vertailukelpoisia
+    score: parseFloat((pointsToResult(result.points, maxPoints) * 10).toFixed(1)),
     xp:xpEarned, date:Date.now(),
-    criteria: (result.criteria||[]).map(c=>({key:c.key,score:c.score})),
+    criteria: (result.criteria||[]).map(c=>({ key:c.key, points:c.points })),
     errorSkills: evidence.errors.map(e=>e.skillId),
     cleanSkills: evidence.clean
   });
-  currentExercise.scores.push(result.totalScore);
+  currentExercise.scores.push(result.points);
   addXP(xpEarned);
   updateStreak();
 
@@ -1942,14 +1934,18 @@ function buildPromptLabel(typeDef, data) {
    RENDER RESULT (task-aware)
 ═══════════════════════════════════════ */
 function renderResult(result, xpEarned, answer) {
-  const score = parseFloat(result.totalScore);
-  const gradeClass = score>=8?'grade-a':score>=6?'grade-b':'grade-c';
-  const scoreColor = score>=8?'var(--accent)':score>=6?'var(--gold)':'var(--warn)';
+  const maxP = result._maxPoints || 60;
+  const pts = typeof result.points === 'number' ? result.points : 0;
+  const lvl = levelOf(pts, maxP);
+  const gradeClass = lvl>=5?'grade-a':lvl>=3?'grade-b':'grade-c';
+  const scoreColor = lvl>=5?'var(--accent)':lvl>=3?'var(--gold)':'var(--warn)';
 
   document.getElementById('result-ring').className = 'score-ring '+gradeClass;
-  document.getElementById('result-score-num').textContent = score.toFixed(1);
+  document.getElementById('result-score-num').textContent = pts;
   document.getElementById('result-score-num').style.color = scoreColor;
-  document.getElementById('result-verdict').textContent = result.verdict||'–';
+  document.getElementById('result-scale').textContent =
+    `${pts} / ${maxP} pistettä · ${examSpec(result._examType).label}`;
+  document.getElementById('result-verdict').textContent = levelLabel(pts, maxP);
   document.getElementById('result-comment').textContent = result.comment||'';
   document.getElementById('xp-gained-chip').textContent = `+${xpEarned} XP ansaittu!`;
 
@@ -1981,11 +1977,15 @@ function renderResult(result, xpEarned, answer) {
   // Criteria bars
   const cl = document.getElementById('criteria-list');
   cl.innerHTML = '';
+  const critMeta = Object.fromEntries(criteriaFor(result._examType).map(c => [c.key, c]));
   (result.criteria||[]).forEach(c => {
-    const pct = (c.score/10)*100;
-    const fillCls = c.score>=8?'fill-a':c.score>=6?'fill-b':'fill-c';
+    const cp = typeof c.points === 'number' ? c.points : 0;
+    const cl2 = levelOf(cp, maxP);
+    const pct = (cp/maxP)*100;
+    const fillCls = cl2>=5?'fill-a':cl2>=3?'fill-b':'fill-c';
+    const weighted = critMeta[c.key] && critMeta[c.key].weighted;
     cl.innerHTML += `<div>
-      <div class="crit-header"><span class="crit-name">${c.name}</span><span class="crit-score">${c.score}/10</span></div>
+      <div class="crit-header"><span class="crit-name">${c.name}${weighted?' <span style="font-size:.7rem;color:var(--gold);font-weight:700">PAINOTETTU</span>':''}</span><span class="crit-score">${cp}/${maxP}</span></div>
       <div class="crit-bar"><div class="crit-fill ${fillCls}" style="width:${pct}%"></div></div>
       <div class="crit-desc">${c.desc||''}</div>
     </div>`;
@@ -2242,9 +2242,9 @@ function renderObDrafts() {
         <div><label>Päivämäärä</label>
           <input type="date" value="${e.date || ''}" onchange="obField(${i},'date',this.value)"/></div>
         <div><label>Arvosana</label>
-          <input type="number" step="0.5" min="0" placeholder="esim. 4" value="${e.grade ?? ''}" onchange="obField(${i},'grade',this.value)"/></div>
+          <input type="number" step="0.5" min="0" placeholder="pisteet tai arvosana" value="${e.grade ?? ''}" onchange="obField(${i},'grade',this.value)"/></div>
         <div><label>Asteikon maksimi</label>
-          <input type="number" min="1" placeholder="esim. 6" value="${e.gradeScaleMax ?? ''}" onchange="obField(${i},'gradeScaleMax',this.value)"/></div>
+          <input type="number" min="1" placeholder="YO: 60, kurssi: esim. 6" value="${e.gradeScaleMax ?? ''}" onchange="obField(${i},'gradeScaleMax',this.value)"/></div>
         <div class="ob-full"><label>Opettajan kommentti</label>
           <input type="text" placeholder="Liitä opettajan palaute sellaisenaan" value="${escapeHtml(e.teacherComment || '')}" onchange="obField(${i},'teacherComment',this.value)"/></div>
         <div class="ob-full"><label>Tehtävänanto</label>
@@ -2522,7 +2522,7 @@ function renderStats() {
     : recent.map(h=>{
         const cls = h.score>=8?'score-a':h.score>=6?'score-b':'score-c';
         const td = EXERCISE_TYPES.find(e=>e.id===h.type)||{title:h.type};
-        return `<div class="history-item"><div class="history-score ${cls}">${h.score}</div>
+        return `<div class="history-item"><div class="history-score ${cls}">${typeof h.points==='number'?h.points:h.score}</div>
           <div style="flex:1;font-size:.84rem"><div style="font-weight:500;color:var(--ink)">${h.prompt}</div>
           <div style="font-size:.75rem;color:var(--ink-3)">${td.title} · ${formatDate(h.date)} · +${h.xp} XP</div></div></div>`;
       }).join('');
@@ -2536,24 +2536,31 @@ function renderStats() {
 function renderCriterionTrends() {
   const el = document.getElementById('crit-trends');
   if (!el) return;
-  el.innerHTML = Object.keys(CRITERIA).map(crit => {
-    const ids = SKILL_TAXONOMY.filter(t => t.crit === crit).map(t => t.id);
-    const practised = ids.map(id => skillsById[id]).filter(s => s && s.lastPractised);
-    const avg = practised.length
-      ? practised.reduce((a, s) => a + s.elo, 0) / practised.length
-      : null;
-    const mastered = ids.filter(id => isMastered(id)).length;
-    const pct = avg == null ? 0 : Math.max(0, Math.min(100, (avg - 900) / 800 * 100));
-    const color = avg == null ? 'var(--border)' : avg >= MASTERED_ELO ? 'var(--accent)'
-                : avg < START_ELO - 80 ? 'var(--warn)' : 'var(--gold)';
-    return `<div style="margin-bottom:14px">
-      <div class="crit-header">
-        <span class="crit-name">${CRITERIA[crit].name}</span>
-        <span class="crit-score">${avg == null ? 'ei dataa' : Math.round(avg)}</span>
-      </div>
-      <div class="crit-bar"><div class="crit-fill" style="width:${pct}%;background:${color}"></div></div>
-      <div class="crit-desc">${mastered}/${ids.length} hallussa · ${practised.length} harjoiteltu</div>
-    </div>`;
+  // Ryhmittely YTL:n arvostelukohteiden mukaan, kummallekin kokeelle erikseen —
+  // niitä myös arvostellaan erikseen.
+  el.innerHTML = ['kirjoitustaito', 'lukutaito'].map(exam => {
+    const spec = examSpec(exam);
+    const rows = spec.criteria.map(c => {
+      const ids = SKILL_TAXONOMY.filter(t => ytlCriterionFor(t.id, t.crit, exam) === c.key).map(t => t.id);
+      if (!ids.length) return '';
+      const practised = ids.map(id => skillsById[id]).filter(s => s && s.lastPractised);
+      const avg = practised.length ? practised.reduce((a, s) => a + s.elo, 0) / practised.length : null;
+      const mastered = ids.filter(id => isMastered(id)).length;
+      const pct = avg == null ? 0 : Math.max(0, Math.min(100, (avg - 900) / 800 * 100));
+      const color = avg == null ? 'var(--border)' : avg >= MASTERED_ELO ? 'var(--accent)'
+                  : avg < START_ELO - 80 ? 'var(--warn)' : 'var(--gold)';
+      return `<div style="margin-bottom:14px">
+        <div class="crit-header">
+          <span class="crit-name">${c.name}${c.weighted ? ' <span style="font-size:.68rem;color:var(--gold);font-weight:700">PAINOTETTU</span>' : ''}</span>
+          <span class="crit-score">${avg == null ? 'ei dataa' : Math.round(avg)}</span>
+        </div>
+        <div class="crit-bar"><div class="crit-fill" style="width:${pct}%;background:${color}"></div></div>
+        <div class="crit-desc">${mastered}/${ids.length} hallussa · ${practised.length} harjoiteltu</div>
+      </div>`;
+    }).join('');
+    return `<div style="margin-bottom:20px">
+      <div style="font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:10px">${spec.label} · ${spec.total} p</div>
+      ${rows}</div>`;
   }).join('');
 }
 

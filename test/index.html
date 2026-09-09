@@ -10,10 +10,11 @@ import eloResults from './elo.test.js';
 import { run as runDb } from './db.test.js';
 import { run as runProvider } from './provider.test.js';
 import { run as runCorpus } from './corpus.test.js';
+import ytlResults from './ytl.test.js';
 const dbResults = await runDb();
 const providerResults = await runProvider();
 const corpusResults = await runCorpus();
-const results = [...metricsResults, ...eloResults, ...dbResults, ...providerResults, ...corpusResults];
+const results = [...metricsResults, ...eloResults, ...dbResults, ...providerResults, ...corpusResults, ...ytlResults];
 const fails = results.filter(r => !r.pass);
 window.__testResults = { total: results.length, failed: fails.length,
   failures: fails.map(f => f.name + ' :: ' + f.detail) };

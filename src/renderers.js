@@ -14,55 +14,55 @@
 
 export const RENDERERS = {
   word_swap: {
-    id: 'word_swap', label: 'Sanaston rikastus', legacy: ['tayta_aukot'],
+    id: 'word_swap', exam: 'kirjoitustaito', label: 'Sanaston rikastus', legacy: ['tayta_aukot'],
     band: [900, 1250], retrieval: 'cued',
     skills: ['san-tasmallisyys','san-rekisteri','san-kliseet','san-abstraktisanasto','san-sivistyssanat','san-puhekielisyys'],
     fromOwnText: false,
   },
   sentence_rewrite: {
-    id: 'sentence_rewrite', label: 'Muotoile uudelleen', legacy: ['muotoile'],
+    id: 'sentence_rewrite', exam: 'kirjoitustaito', label: 'Muotoile uudelleen', legacy: ['muotoile'],
     band: [1000, 1400], retrieval: 'cued',
     skills: ['san-rekisteri','san-puhekielisyys','san-nominalisaatio','san-tasmallisyys','kie-virkerakenne','kie-passiivi'],
     fromOwnText: true,
   },
   sentence_combine: {
-    id: 'sentence_combine', label: 'Yhdistä lauseet', legacy: ['siirtymä'],
+    id: 'sentence_combine', exam: 'kirjoitustaito', label: 'Yhdistä lauseet', legacy: ['siirtymä'],
     band: [950, 1350], retrieval: 'cued',
     skills: ['rak-siirtymailmaisut','rak-koherenssi','arg-myonnytys','kie-virkerakenne','kie-pilkku','kie-lauseenvastikkeet'],
     fromOwnText: true,
   },
   order_sentences: {
-    id: 'order_sentences', label: 'Järjestä kappale', legacy: ['jarjesta'],
+    id: 'order_sentences', exam: 'kirjoitustaito', label: 'Järjestä kappale', legacy: ['jarjesta'],
     band: [900, 1200], retrieval: 'recognition',
     skills: ['rak-jasennyksen-logiikka','rak-koherenssi','rak-ydinvirke','rak-kappalejako'],
     fromOwnText: true,
   },
   error_hunt: {
-    id: 'error_hunt', label: 'Korjaa virheet', legacy: ['korjaa'],
+    id: 'error_hunt', exam: 'kirjoitustaito', label: 'Korjaa virheet', legacy: ['korjaa'],
     band: [950, 1350], retrieval: 'recognition',
     skills: ['kie-kongruenssi','kie-sijamuodot','kie-rektio','kie-pilkku','kie-lauseenvastikkeet','kie-virkerakenne','kie-aikamuodot','kie-oikeinkirjoitus'],
     fromOwnText: false,   // virheet on injektoitava, joten omaa tekstiä ei voi käyttää sellaisenaan
   },
   passage_production: {
-    id: 'passage_production', label: 'Kirjoita jakso', legacy: ['johdanto','paatos'],
+    id: 'passage_production', exam: 'kirjoitustaito', label: 'Kirjoita jakso', legacy: ['johdanto','paatos'],
     band: [1200, 1600], retrieval: 'free',
     skills: ['rak-aloitusvirke','rak-johdanto-teesi','rak-paatoksen-sitominen','rak-otsikon-vastaavuus','arg-vaite','arg-kasitteen-maarittely','san-kliseet'],
     fromOwnText: false,
   },
   source_response: {
-    id: 'source_response', label: 'Aineistovastaus', legacy: ['luku_vastaus','luku_viittaus'],
+    id: 'source_response', exam: 'lukutaito', label: 'Aineistovastaus', legacy: ['luku_vastaus','luku_viittaus'],
     band: [1300, 1700], retrieval: 'free',
     skills: ['arg-aineiston-tulkinta','arg-lahdeviittaus','arg-perustelu','arg-varaukset','arg-nakokulma','rak-ydinvirke'],
     fromOwnText: false,
   },
   summarise: {
-    id: 'summarise', label: 'Tiivistelmä', legacy: ['tiivistelmä'],
+    id: 'summarise', exam: 'lukutaito', label: 'Tiivistelmä', legacy: ['tiivistelmä'],
     band: [1150, 1500], retrieval: 'free',
     skills: ['san-tasmallisyys','san-toisto','san-nominalisaatio','arg-aineiston-tulkinta','kie-virkerakenne'],
     fromOwnText: false,
   },
   free_production: {
-    id: 'free_production', label: 'Vapaa tuotos', legacy: ['kirjoita','argumentoi','vertailu','pohdinta'],
+    id: 'free_production', exam: 'kirjoitustaito', label: 'Vapaa tuotos', legacy: ['kirjoita','argumentoi','vertailu','pohdinta'],
     band: [1300, 1900], retrieval: 'free',
     skills: '*',          // mikä tahansa osataito
     fromOwnText: false,
@@ -70,6 +70,9 @@ export const RENDERERS = {
     frames: ['pohtiva','argumentoiva','vertaileva','kertova'],
   },
 };
+
+/** Renderöijä → kumman kokeen suoritusta se harjoittelee. */
+export function examForRenderer(id) { return (RENDERERS[id] || {}).exam || 'kirjoitustaito'; }
 
 export const RENDERER_IDS = Object.keys(RENDERERS);
 
