@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="fi"><head><meta charset="UTF-8"/><title>Kirjoita — testit</title>
+<style>body{font-family:ui-monospace,monospace;background:#F7F4EF;color:#1A1714;padding:24px;line-height:1.6}
+.pass{color:#2D5F3F}.fail{color:#B85C2A;font-weight:700}h1{font-family:serif}
+#summary{font-size:1.1rem;margin:16px 0;padding:12px;border-radius:8px;background:#fff}</style></head>
+<body><h1>Kirjoita — yksikkötestit</h1><div id="summary">Ajetaan…</div><div id="out"></div>
+<script type="module">
+import metricsResults from './metrics.test.js';
+import eloResults from './elo.test.js';
+import { run as runDb } from './db.test.js';
+import { run as runProvider } from './provider.test.js';
+import { run as runCorpus } from './corpus.test.js';
+const dbResults = await runDb();
+const providerResults = await runProvider();
+const corpusResults = await runCorpus();
+const results = [...metricsResults, ...eloResults, ...dbResults, ...providerResults, ...corpusResults];
+const fails = results.filter(r => !r.pass);
+window.__testResults = { total: results.length, failed: fails.length,
+  failures: fails.map(f => f.name + ' :: ' + f.detail) };
+document.getElementById('summary').innerHTML =
+  `<b>${results.length - fails.length}/${results.length} läpi</b>` +
+  (fails.length ? ` — <span class="fail">${fails.length} epäonnistui</span>` : ' — kaikki OK ✓');
+document.getElementById('out').innerHTML = results.map(r =>
+  `<div class="${r.pass?'pass':'fail'}">${r.pass?'✓':'✗'} ${r.name}${r.pass?'':' — '+r.detail}</div>`).join('');
+</script></body></html>
