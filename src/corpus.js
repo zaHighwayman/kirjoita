@@ -27,6 +27,19 @@ export const EXAM_LABELS = {
   muu: 'Muu / kurssityö',
 };
 
+/**
+ * Arviointiasteikot. Asteikon ALARAJA on olennainen: lukion kurssiarvosana
+ * kulkee 4-10, jolloin 4 on hylätty. Jos nollasta lähtevää kaavaa käyttäisi,
+ * kutosen suoritus näyttäisi 60 %:n osaamiselta vaikka se on 33 % asteikosta.
+ */
+export const GRADE_SCALES = {
+  yo:     { id:'yo',     label:'YO-pisteet (0–60)',        min: 0, max: 60 },
+  kurssi: { id:'kurssi', label:'Kurssiarvosana (4–10)',    min: 4, max: 10 },
+  luku30: { id:'luku30', label:'Lukutaidon tehtävä (0–30)',min: 0, max: 30 },
+  custom: { id:'custom', label:'Muu asteikko',             min: 0, max: 10 },
+};
+export const GRADE_SCALE_IDS = Object.keys(GRADE_SCALES);
+
 export const GENRES = ['referaatti', 'pohtiva', 'analyysi', 'kantaaottava', 'kertova', 'muu'];
 export const GENRE_LABELS = {
   referaatti: 'Referaatti', pohtiva: 'Pohtiva', analyysi: 'Analyysi',
@@ -66,7 +79,9 @@ export function newEssay(fields) {
     prompt: fields.prompt || null,
     date: fields.date || new Date().toISOString().slice(0, 10),
     grade: fields.grade ?? null,
+    gradeScaleMin: fields.gradeScaleMin ?? 0,
     gradeScaleMax: fields.gradeScaleMax ?? null,
+    gradeScaleId: fields.gradeScaleId || null,
     teacherComment: fields.teacherComment || null,
     criterionPoints: fields.criterionPoints || null,
     metrics: fields.metrics || analyzeText(fields.text || ''),
@@ -95,7 +110,14 @@ export function gradeAnchor(essays, scope) {
     .filter(e => !examType || e.examType === examType)
     .filter(e => !genre || e.genre === genre)
     .filter(e => typeof e.grade === 'number' && e.gradeScaleMax > 0)
-    .map(e => e.grade / e.gradeScaleMax);
+    // Osuus asteikon KÄYTETTÄVISSÄ olevasta välistä, ei nollasta.
+    .map(e => {
+      const lo = e.gradeScaleMin || 0;
+      const span = e.gradeScaleMax - lo;
+      if (span <= 0) return null;
+      return Math.max(0, Math.min(1, (e.grade - lo) / span));
+    })
+    .filter(v => v != null);
   const med = median(pool);
   if (med == null) return { elo: START_ELO, basis: 'ei arvosanoja', n: 0 };
   return {

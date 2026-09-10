@@ -1,7 +1,7 @@
 /* Testit korpusmoduulille (§4). */
 import { splitEssays, newEssay, median, gradeAnchor, metricWeakness, bandsFor,
          chronologicalCheck, clusterComments, deriveStartingElo, analyseEssay,
-         analyseCorpus, criterionAnchors, GENRES, EXAM_TYPES, EXAM_LABELS, GENRES_BY_EXAM, EXAM_BANDS,
+         analyseCorpus, criterionAnchors, GRADE_SCALES, GENRES, EXAM_TYPES, EXAM_LABELS, GENRES_BY_EXAM, EXAM_BANDS,
          COMMENT_PENALTY, METRIC_TO_SKILLS } from '../src/corpus.js';
 import { START_ELO } from '../src/elo.js';
 
@@ -50,6 +50,27 @@ export async function run() {
      Math.abs(gradeAnchor([mk({grade:5,gradeScaleMax:10})]).elo - gradeAnchor([mk({grade:3,gradeScaleMax:6})]).elo) < 30,
      gradeAnchor([mk({grade:5,gradeScaleMax:10})]).elo + ' vs ' + gradeAnchor([mk({grade:3,gradeScaleMax:6})]).elo);
   ok('ankkuri: ei arvosanoja → lähtöarvo', gradeAnchor([mk({})]).elo === START_ELO);
+
+  /* ── Asteikon alaraja: kurssiarvosana alkaa nelosesta ── */
+  const K = GRADE_SCALES.kurssi;
+  ok('asteikko: kurssiarvosana on 4-10', K.min === 4 && K.max === 10);
+  ok('asteikko: YO on 0-60', GRADE_SCALES.yo.min === 0 && GRADE_SCALES.yo.max === 60);
+  const gradeK = g => gradeAnchor([mk({ grade:g, gradeScaleMin:K.min, gradeScaleMax:K.max })]).elo;
+  // Nelonen on hylätty: sen on osuttava asteikon pohjalle, ei 40 %:iin.
+  ok('asteikko: nelonen on pohja', gradeK(4) === 900, String(gradeK(4)));
+  ok('asteikko: kymppi on katto', gradeK(10) === 1600, String(gradeK(10)));
+  ok('asteikko: seiska keskivaiheille', gradeK(7) > 1150 && gradeK(7) < 1300, String(gradeK(7)));
+  // Vanha nollasta lähtevä kaava antaisi kutoselle 60 % → ~1280. Oikea on 33 % → ~1167.
+  ok('asteikko: kutonen ei näytä hyvältä suoritukselta', gradeK(6) < 1220, String(gradeK(6)));
+  ok('asteikko: heikko kurssiarvosana alle YO-keskitason',
+     gradeK(5) < gradeAnchor([mk({ grade:30, gradeScaleMin:0, gradeScaleMax:60 })]).elo,
+     gradeK(5) + ' vs ' + gradeAnchor([mk({ grade:30, gradeScaleMin:0, gradeScaleMax:60 })]).elo);
+  ok('asteikko: alarajan alle jäävä rajautuu', gradeK(2) === 900);
+  ok('asteikko: eri asteikot vertailukelpoisia',
+     Math.abs(gradeK(7) - gradeAnchor([mk({ grade:30, gradeScaleMin:0, gradeScaleMax:60 })]).elo) < 40,
+     gradeK(7) + ' vs ' + gradeAnchor([mk({ grade:30, gradeScaleMin:0, gradeScaleMax:60 })]).elo);
+  ok('asteikko: puuttuva alaraja käyttäytyy kuin nolla',
+     gradeAnchor([mk({ grade:30, gradeScaleMax:60 })]).elo === gradeAnchor([mk({ grade:30, gradeScaleMin:0, gradeScaleMax:60 })]).elo);
   ok('ankkuri: suodattaa genren', gradeAnchor([mk({genre:'kertova',grade:6,gradeScaleMax:6}),
                                                 mk({genre:'pohtiva',grade:2,gradeScaleMax:6})], 'pohtiva').n === 1);
 

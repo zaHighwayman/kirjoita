@@ -697,7 +697,8 @@ import { prepareImage, transcribeEssay, transcriptionWarnings, annotationsToComm
 import { hasVision } from './src/provider.js';
 import { splitEssays, newEssay, gradeAnchor, metricWeakness, chronologicalCheck,
          clusterComments, deriveStartingElo, analyseEssay, analyseCorpus,
-         GENRES, GENRE_LABELS, EXAM_TYPES, EXAM_LABELS, GENRES_BY_EXAM } from './src/corpus.js';
+         GENRES, GENRE_LABELS, EXAM_TYPES, EXAM_LABELS, GENRES_BY_EXAM,
+         GRADE_SCALES, GRADE_SCALE_IDS } from './src/corpus.js';
 
 /* ═══════════════════════════════════════
    CONSTANTS
@@ -2409,7 +2410,11 @@ function obReviewDone() {
     const g = parseGradeSeen(t.gradeSeen);
     if (g) {
       d.grade = g.grade;
-      if (g.max) d.gradeScaleMax = g.max;
+      // Pistemäärä → YO-asteikko; pieni luku → kurssiarvosana, joka alkaa nelosesta.
+      const scale = g.max === 30 ? 'luku30' : (g.max && g.max > 10) ? 'yo' : 'kurssi';
+      d.gradeScaleId = scale;
+      d.gradeScaleMin = GRADE_SCALES[scale].min;
+      d.gradeScaleMax = GRADE_SCALES[scale].max;
       d.autofilled.push('arvosana');
     }
     if (t.criterionPointsSeen && t.criterionPointsSeen.length) {
@@ -2423,7 +2428,11 @@ function obReviewDone() {
       });
       if (Object.keys(cp).length) {
         d.criterionPoints = cp;
-        if (!d.gradeScaleMax) d.gradeScaleMax = examSpec(guessExam).defaultMax;
+        if (!d.gradeScaleMax) {
+          d.gradeScaleId = 'yo';
+          d.gradeScaleMin = 0;
+          d.gradeScaleMax = examSpec(guessExam).defaultMax;
+        }
         d.autofilled.push('kohdepisteet');
       }
     }
@@ -2431,6 +2440,20 @@ function obReviewDone() {
   });
   document.getElementById('ob-step-review').style.display = 'none';
   document.getElementById('ob-step-tag').style.display = '';
+  renderObDrafts();
+}
+
+// Asteikon valinta asettaa ala- ja ylärajan yhdessä: pelkkä maksimi ei riitä,
+// koska kurssiarvosana alkaa nelosesta eikä nollasta.
+function obScale(i, id) {
+  const e = obDrafts[i];
+  if (!id) { e.gradeScaleId = null; e.gradeScaleMin = 0; e.gradeScaleMax = null; }
+  else {
+    const sc = GRADE_SCALES[id];
+    e.gradeScaleId = id;
+    e.gradeScaleMin = sc.min;
+    e.gradeScaleMax = sc.max;
+  }
   renderObDrafts();
 }
 
@@ -2500,10 +2523,20 @@ function renderObDrafts() {
           </select></div>
         <div><label>Päivämäärä</label>
           <input type="date" value="${e.date || ''}" onchange="obField(${i},'date',this.value)"/></div>
+        <div><label>Asteikko</label>
+          <select onchange="obScale(${i},this.value)">
+            <option value=""${!e.gradeScaleId ? ' selected' : ''}>— ei arvosanaa —</option>
+            ${GRADE_SCALE_IDS.map(k => `<option value="${k}"${e.gradeScaleId === k ? ' selected' : ''}>${GRADE_SCALES[k].label}</option>`).join('')}
+          </select></div>
         <div><label>Arvosana${(e.autofilled||[]).includes('arvosana') ? ' <span class="ob-auto">luettu</span>' : ''}</label>
-          <input type="number" step="0.5" min="0" placeholder="pisteet tai arvosana" value="${e.grade ?? ''}" onchange="obField(${i},'grade',this.value)"/></div>
-        <div><label>Asteikon maksimi</label>
-          <input type="number" min="1" placeholder="YO: 60, kurssi: esim. 6" value="${e.gradeScaleMax ?? ''}" onchange="obField(${i},'gradeScaleMax',this.value)"/></div>
+          <input type="number" step="0.5" ${e.gradeScaleId ? `min="${e.gradeScaleMin}" max="${e.gradeScaleMax}"` : ''}
+                 placeholder="${e.gradeScaleId ? `${e.gradeScaleMin}–${e.gradeScaleMax}` : 'valitse asteikko ensin'}"
+                 value="${e.grade ?? ''}" onchange="obField(${i},'grade',this.value)"/></div>
+        ${e.gradeScaleId === 'custom' ? `
+        <div><label>Asteikon alaraja</label>
+          <input type="number" value="${e.gradeScaleMin ?? 0}" onchange="obField(${i},'gradeScaleMin',this.value)"/></div>
+        <div><label>Asteikon yläraja</label>
+          <input type="number" value="${e.gradeScaleMax ?? ''}" onchange="obField(${i},'gradeScaleMax',this.value)"/></div>` : ''}
         <div class="ob-full"><label>Opettajan arvio ja palaute${(e.autofilled||[]).includes('palaute') ? ' <span class="ob-auto">luettu kuvista</span>' : ''}</label>
           <textarea rows="3" placeholder="Liitä opettajan palaute sellaisenaan, myös useampi kappale" onchange="obField(${i},'teacherComment',this.value)">${escapeHtml(e.teacherComment || '')}</textarea></div>
         <div class="ob-full"><label>Pisteet arvostelukohteittain ${(e.autofilled||[]).includes('kohdepisteet') ? '<span class="ob-auto">luettu kuvista</span>' : '<span style="font-weight:400;color:var(--ink-3)">(jos tiedossa — tarkin lähtötieto)</span>'}</label>
@@ -2938,7 +2971,7 @@ Object.assign(window, {
   switchSkillView, toggleJournal,
   obDetect, obBack, obRemove, obMerge, obField, obExamType, obAnalyse, obSkip, obFinish, openCorpusImport,
   obImagesPicked, obRemovePage, obMovePage, obSplitHere, obToggleRole, obTranscribe, obTranscriptEdit, obReviewDone, obCritPoints,
-  obCopyPrompt, obToggleManual, obUseManual,
+  obCopyPrompt, obToggleManual, obUseManual, obScale,
   startNextFromQueue,
 });
 
