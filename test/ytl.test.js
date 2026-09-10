@@ -1,7 +1,7 @@
 /* Testit YTL:n arvostelukohteille ja pisteasteikoille. */
 import { YTL_EXAMS, EXAM_IDS, examSpec, criteriaFor, allowedPoints, snapToScale,
          levelOf, pointsToResult, levelLabel, totalFromCriteria, SCALE_LEVELS,
-         ytlCriterionFor, SKILL_TO_YTL } from '../src/ytl.js';
+         ytlCriterionFor, SKILL_TO_YTL, matchCriterionName, parseGradeSeen } from '../src/ytl.js';
 
 const results = [];
 const ok = (name, cond, detail) => results.push({ name, pass: !!cond, detail: detail || '' });
@@ -99,3 +99,25 @@ ok('kytkentä: palauttaa aina olemassa olevan kohteen',
      EXAM_IDS.every(ex => criteriaFor(ex).some(c => c.key === ytlCriterionFor('x', g, ex)))));
 
 export default results;
+
+/* ── Kuvasta luettujen arvojen tulkinta ── */
+ok('nimitulkinta: tarkka nimi', matchCriterionName('Kieli ja ilmaisu', 'kirjoitustaito') === 'kieli');
+ok('nimitulkinta: pienaakkoset', matchCriterionName('kieli ja ilmaisu', 'kirjoitustaito') === 'kieli');
+ok('nimitulkinta: lyhennetty muoto', matchCriterionName('Kieli', 'kirjoitustaito') === 'kieli');
+ok('nimitulkinta: tekstin rakenne', matchCriterionName('Tekstin rakenne', 'kirjoitustaito') === 'rakenne');
+ok('nimitulkinta: aineistojen käyttö', matchCriterionName('Aineistojen käyttö', 'kirjoitustaito') === 'aineistot');
+ok('nimitulkinta: lukutaidon kohde', matchCriterionName('Päätelmät ja tulkinta', 'lukutaito') === 'paatelmat');
+ok('nimitulkinta: tunnistamaton → null', matchCriterionName('Jokin ihan muu', 'kirjoitustaito') === null);
+ok('nimitulkinta: tyhjä → null', matchCriterionName('', 'kirjoitustaito') === null);
+ok('nimitulkinta: palauttaa aina kelvollisen avaimen tai null', (() => {
+  const k = matchCriterionName('Näkökulma ja tekstin omaäänisyys', 'kirjoitustaito');
+  return k === null || criteriaFor('kirjoitustaito').some(c => c.key === k);
+})());
+
+ok('arvosana: 32/60', JSON.stringify(parseGradeSeen('32/60')) === JSON.stringify({grade:32,max:60}));
+ok('arvosana: välilyönnit', JSON.stringify(parseGradeSeen('32 / 60')) === JSON.stringify({grade:32,max:60}));
+ok('arvosana: pelkkä pistemäärä olettaa 60', parseGradeSeen('42 p').max === 60);
+ok('arvosana: kouluarvosana ei oleta asteikkoa', parseGradeSeen('8').max === null);
+ok('arvosana: desimaalipilkku', parseGradeSeen('8,5').grade === 8.5);
+ok('arvosana: tyhjä → null', parseGradeSeen('') === null && parseGradeSeen('   ') === null);
+ok('arvosana: ei numeroa → null', parseGradeSeen('hyvä') === null);

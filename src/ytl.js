@@ -133,3 +133,36 @@ export function ytlCriterionFor(skillId, skillGroup, examType) {
   const grp = SKILLGROUP_TO_YTL[skillGroup];
   return (grp && grp[exam]) || criteriaFor(exam)[0].key;
 }
+
+/* ── Kuvasta luettujen nimien ja pisteiden tulkinta ─────────────────────── */
+/**
+ * Kuvassa lukeva arvostelukohteen nimi → tunniste. Malli palauttaa nimen siinä
+ * muodossa kuin se paperilla lukee, joten täsmävertailu ei riitä.
+ */
+export function matchCriterionName(name, examType) {
+  const n = String(name || '').toLowerCase().trim();
+  if (!n) return null;
+  for (const ex of (examType ? [examType] : EXAM_IDS)) {
+    for (const c of criteriaFor(ex)) {
+      const cn = c.name.toLowerCase();
+      if (n === cn || n === c.key) return c.key;
+      // Osuma kumpaankin suuntaan: "kieli" ~ "Kieli ja ilmaisu"
+      const head = cn.split(' ja ')[0];
+      if (n.includes(head) || head.includes(n)) return c.key;
+    }
+  }
+  return null;
+}
+
+/** "32/60", "32 / 60", "32 p" tai "32" → { grade, max }. */
+export function parseGradeSeen(str) {
+  const t = String(str || '').replace(/,/g, '.').trim();
+  if (!t) return null;
+  const frac = t.match(/(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/);
+  if (frac) return { grade: parseFloat(frac[1]), max: parseFloat(frac[2]) };
+  const num = t.match(/(\d+(?:\.\d+)?)/);
+  if (!num) return null;
+  const g = parseFloat(num[1]);
+  // Paljas luku: pisteitä jos se ylittää tavallisen kouluarvosana-asteikon.
+  return { grade: g, max: g > 10 ? 60 : null };
+}

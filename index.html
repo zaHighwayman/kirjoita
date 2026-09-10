@@ -229,6 +229,8 @@
       font-family:'DM Sans',sans-serif;font-size:.86rem;background:var(--bg);color:var(--ink);outline:none;resize:vertical;line-height:1.55}
     .ob-fields textarea:focus{border-color:var(--accent);background:var(--surface)}
     .ob-crit-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+    .ob-auto{font-weight:600;font-size:.68rem;color:var(--accent);background:var(--accent-l);
+      padding:2px 7px;border-radius:99px;margin-left:6px;letter-spacing:.02em}
     .ob-crit-grid .occ-crit{display:block;font-size:.72rem;color:var(--ink-3);margin-bottom:3px;line-height:1.3}
     .ob-review{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px}
     .ob-review textarea{width:100%;min-height:180px;padding:12px;border:1.5px solid var(--border);border-radius:8px;
@@ -685,7 +687,8 @@ import { START_ELO, expectedScore, targetDifficulty, applyAttempt, buildServeQue
 import { RENDERERS, RENDERER_IDS, LEGACY_TO_RENDERER, renderersForSkill, clampToBand,
          examForRenderer } from './src/renderers.js';
 import { YTL_EXAMS, examSpec, criteriaFor, allowedPoints, snapToScale, levelOf,
-         pointsToResult, levelLabel, totalFromCriteria, ytlCriterionFor } from './src/ytl.js';
+         pointsToResult, levelLabel, totalFromCriteria, ytlCriterionFor,
+         matchCriterionName, parseGradeSeen } from './src/ytl.js';
 import { analyzeText } from './src/metrics.js';
 import { callJSON, LlmError, PROVIDERS } from './src/provider.js';
 import { verifyAll, isGated, GATED_SKILLS, METRIC_GATES } from './src/antigaming.js';
@@ -2394,10 +2397,36 @@ function obReviewDone() {
   // Litteroinnit muuttuvat luonnoksiksi, opettajan merkinnät kommenttikentäksi.
   obDrafts = obTranscripts.map(t => {
     const d = newEssay({ text: t.text, source: 'pasted', teacherComment: annotationsToComment(t) });
-    d.fromImages = t.pageCount;
+    d.fromImages = t.pageCount || 0;
+    d.fromPaste = t.source === 'manual';
     d.annotationCount = t.annotations.length;
     d.visionAnnotations = t.annotations;
-    if (t.criterionPointsSeen && t.criterionPointsSeen.length) d.criterionPointsSeen = t.criterionPointsSeen;
+    d.autofilled = [];
+    if (d.teacherComment) d.autofilled.push('palaute');
+
+    // Kuvasta luetut pisteet suoraan kenttiin — käyttäjän ei pidä naputella
+    // uudelleen sitä, mikä on jo luettu.
+    const g = parseGradeSeen(t.gradeSeen);
+    if (g) {
+      d.grade = g.grade;
+      if (g.max) d.gradeScaleMax = g.max;
+      d.autofilled.push('arvosana');
+    }
+    if (t.criterionPointsSeen && t.criterionPointsSeen.length) {
+      const guessExam = t.criterionPointsSeen.some(c => /päätelm|erittel|lukutaido/i.test(c.name))
+        ? 'lukutaito' : 'kirjoitustaito';
+      d.examType = guessExam;
+      const cp = {};
+      t.criterionPointsSeen.forEach(c => {
+        const key = matchCriterionName(c.name, guessExam);
+        if (key) cp[key] = c.points;
+      });
+      if (Object.keys(cp).length) {
+        d.criterionPoints = cp;
+        if (!d.gradeScaleMax) d.gradeScaleMax = examSpec(guessExam).defaultMax;
+        d.autofilled.push('kohdepisteet');
+      }
+    }
     return d;
   });
   document.getElementById('ob-step-review').style.display = 'none';
@@ -2471,13 +2500,13 @@ function renderObDrafts() {
           </select></div>
         <div><label>Päivämäärä</label>
           <input type="date" value="${e.date || ''}" onchange="obField(${i},'date',this.value)"/></div>
-        <div><label>Arvosana</label>
+        <div><label>Arvosana${(e.autofilled||[]).includes('arvosana') ? ' <span class="ob-auto">luettu</span>' : ''}</label>
           <input type="number" step="0.5" min="0" placeholder="pisteet tai arvosana" value="${e.grade ?? ''}" onchange="obField(${i},'grade',this.value)"/></div>
         <div><label>Asteikon maksimi</label>
           <input type="number" min="1" placeholder="YO: 60, kurssi: esim. 6" value="${e.gradeScaleMax ?? ''}" onchange="obField(${i},'gradeScaleMax',this.value)"/></div>
-        <div class="ob-full"><label>Opettajan arvio ja palaute</label>
+        <div class="ob-full"><label>Opettajan arvio ja palaute${(e.autofilled||[]).includes('palaute') ? ' <span class="ob-auto">luettu kuvista</span>' : ''}</label>
           <textarea rows="3" placeholder="Liitä opettajan palaute sellaisenaan, myös useampi kappale" onchange="obField(${i},'teacherComment',this.value)">${escapeHtml(e.teacherComment || '')}</textarea></div>
-        <div class="ob-full"><label>Pisteet arvostelukohteittain <span style="font-weight:400;color:var(--ink-3)">(jos tiedossa — tämä on tarkin lähtötieto)</span></label>
+        <div class="ob-full"><label>Pisteet arvostelukohteittain ${(e.autofilled||[]).includes('kohdepisteet') ? '<span class="ob-auto">luettu kuvista</span>' : '<span style="font-weight:400;color:var(--ink-3)">(jos tiedossa — tarkin lähtötieto)</span>'}</label>
           <div class="ob-crit-grid">
             ${criteriaFor(e.examType === 'lukutaito' ? 'lukutaito' : 'kirjoitustaito').map(c => `
               <div><span class="occ-crit">${c.name}${c.weighted ? ' ★' : ''}</span>
@@ -2487,7 +2516,7 @@ function renderObDrafts() {
           </div></div>
         <div class="ob-full"><label>Tehtävänanto</label>
           <input type="text" placeholder="Jos tiedossa" value="${escapeHtml(e.prompt || '')}" onchange="obField(${i},'prompt',this.value)"/></div>
-        ${e.fromImages ? `<div class="ob-full"><span class="occ-note">📷 Litteroitu ${e.fromImages} kuvasta${e.annotationCount ? ` · ${e.annotationCount} opettajan merkintää luettu` : ''}</span></div>` : ''}
+        ${(e.fromImages || e.fromPaste) ? `<div class="ob-full"><span class="occ-note">${e.fromImages ? `📷 Litteroitu ${e.fromImages} kuvasta` : '📋 Liitetty litterointi'}${e.annotationCount ? ` · ${e.annotationCount} opettajan merkintää` : ''}${(e.autofilled||[]).length ? ` · esitäytetty: ${e.autofilled.join(', ')}` : ''}</span></div>` : ''}
       </div>
     </div>`).join('');
 }
