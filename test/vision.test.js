@@ -1,5 +1,6 @@
 /* Testit kuvalitteroinnille ja kuvatuelle. */
-import { transcribeEssay, transcriptionWarnings, annotationsToComment, MAX_IMAGE_EDGE } from '../src/vision.js';
+import { transcribeEssay, transcriptionWarnings, annotationsToComment, looksLikeCorrectionList,
+         MAX_IMAGE_EDGE } from '../src/vision.js';
 import { toParts, resolveProvider, hasVision, PROVIDERS } from '../src/provider.js';
 
 const results = [];
@@ -45,8 +46,9 @@ export async function run() {
   ok('kehote: kieltää virheiden korjaamisen', /ÄLÄ korjaa kirjoitusvirheitä/.test(sys));
   ok('kehote: kieltää tyylin parantamisen', /ÄLÄ paranna sanavalintoja/.test(sys));
   ok('kehote: antaa konkreettisen esimerkin', /monet ihmiset ajattelee/.test(sys));
-  ok('kehote: sanoo miksi', /Korjattu litterointi on hyödytön/.test(sys));
-  ok('kehote: erottaa opettajan merkinnät', /opettajan merkinnät/i.test(sys));
+  ok('kehote: sanoo miksi', /litterointi on hyödytön/.test(sys), sys.slice(0, 80));
+  ok('kehote: erottaa opettajan sivut esseesivuista',
+     /KOMMENTTISIVUT/.test(sys) && /ESSEESIVUT/.test(sys));
   ok('kehote: kieltää arvaamisen', /Älä arvaa/.test(sys));
 
   /* ── Tulos ── */
@@ -88,6 +90,48 @@ export async function run() {
   catch (e) { ok('virhe: tyhjä kuvalista kerrotaan', /Ei kuvia/.test(e.message)); }
   try { await transcribeEssay([IMG], {}, capture); ok('virhe: ilman avainta', false); }
   catch (e) { ok('virhe: puuttuva kuvatuki ohjaa asetuksiin', /Asetuksista/.test(e.message), e.message); }
+
+  /* ── Numeroitu korjauslista: opettajan lista ei saa vuotaa esseetekstiin ── */
+  const leaked = `Axel istuu sohvallaan ja katsoo elokuvaa.
+
+Kommentti
+1) , mikä
+2) a
+3) vaka vanhasta Väinämöisestä
+4) ,
+5) Tämän voisi jättää pois.
+6) tunteet ja kirjallisuus ovat olleet ihmisten rinnalla.`;
+  ok('vuoto: numeroitu lista havaitaan', looksLikeCorrectionList(leaked) === true);
+  ok('vuoto: tavallinen essee ei laukaise',
+     looksLikeCorrectionList('Axel istuu sohvallaan. Elokuvassa on jännä kohta. Hän miettii lemmikkiään.') === false);
+  ok('vuoto: yksittäinen numeroviite ei laukaise',
+     looksLikeCorrectionList('Teos julkaistiin 1984. 1) Tämä on alaviite.') === false);
+  ok('vuoto: varoitus nostetaan',
+     transcriptionWarnings({ text: leaked, legible: true, uncertainSpans: [] })
+       .some(x => /korjauslista/.test(x)));
+
+  /* ── Sivujen roolit kerrotaan mallille ── */
+  let cap2 = null;
+  const cap2fn = async (messages) => { cap2 = messages; return {
+    text:'x', annotations:[], teacherSummary:'', gradeSeen:'', criterionPointsSeen:[],
+    legible:true, uncertainSpans:[] }; };
+  await transcribeEssay([{ ...IMG, role:'essay' }, { ...IMG, role:'essay' }, { ...IMG, role:'feedback' }],
+                        CFG_GEMINI, cap2fn);
+  const ask = cap2[1].content[0].text;
+  ok('roolit: kerrotaan mallille', /sivu 3 = KOMMENTTISIVU/.test(ask), ask.slice(0, 200));
+  ok('roolit: esseesivut merkitään', /sivu 1 = ESSEESIVU/.test(ask));
+  const sys2 = cap2[0].content;
+  ok('kehote: kieltää korjauslistan esseetekstissä', /Numeroitua korjauslistaa/.test(sys2));
+  ok('kehote: kieltää korjausten soveltamisen', /ÄLÄ ota korjauslistan korjauksia käyttöön/.test(sys2));
+  ok('kehote: pyytää yhdistämään numerot', /Yhdistä numerot/.test(sys2));
+
+  /* ── Merkinnän numero säilyy ── */
+  const withMarkers = await transcribeEssay([IMG], CFG_GEMINI, async () => ({
+    text:'essee', annotations:[{ marker:13, quote:'Musiikki on nykyään niin iso markkina',
+      note:'Musiikkimarkkinat ovat nykyään niin suuret', kind:'muotoilu' }],
+    teacherSummary:'', gradeSeen:'', criterionPointsSeen:[], legible:true, uncertainSpans:[] }));
+  ok('merkintä: numero säilyy', withMarkers.annotations[0].marker === '13');
+  ok('merkintä: laji säilyy', withMarkers.annotations[0].kind === 'muotoilu');
 
   ok('koko: skaalausraja järkevä käsialalle', MAX_IMAGE_EDGE >= 1200 && MAX_IMAGE_EDGE <= 2400);
   return results;

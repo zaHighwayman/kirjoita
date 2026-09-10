@@ -44,29 +44,48 @@ export function prepareImage(file, maxEdge = MAX_IMAGE_EDGE) {
   });
 }
 
-const SYSTEM = `Olet tarkka litteroija. Saat valokuvia opiskelijan käsin tai koneella kirjoitetusta esseestä, jossa opettaja on tehnyt merkintöjä tekstin päälle ja marginaaliin.
+const SYSTEM = `Olet tarkka litteroija. Saat valokuvia tai kuvakaappauksia opiskelijan esseestä, jonka opettaja on arvioinut.
 
-EHDOTON SÄÄNTÖ: litteroi opiskelijan teksti TÄSMÄLLEEN sellaisena kuin se on.
-- ÄLÄ korjaa kirjoitusvirheitä, yhdyssanavirheitä, pilkkuja tai kongruenssia.
-- ÄLÄ paranna sanavalintoja, sanajärjestystä tai tyyliä.
-- ÄLÄ täydennä keskeneräisiä lauseita.
-- Jos opiskelija on kirjoittanut "monet ihmiset ajattelee", litteroi juuri niin.
-- Virheiden säilyttäminen on tämän tehtävän tärkein vaatimus. Korjattu litterointi on hyödytön.
+AINEISTO KOOSTUU KAHDENLAISISTA SIVUISTA:
+1. ESSEESIVUT — opiskelijan oma teksti. Korjattavat kohdat on usein korostettu ja
+   merkitty yläindeksinumerolla, esim. "ja tämä^1)".
+2. KOMMENTTISIVUT — opettajan yleiskommentti ja NUMEROITU LISTA korjauksista,
+   esim. "1) , mikä" ja "13) Musiikkimarkkinat ovat nykyään niin suuret, että…".
+   Numero viittaa esseessä olevaan samannumeroiseen korostukseen.
 
-Erota opiskelijan oma teksti ja opettajan merkinnät toisistaan. Opettajan merkinnät ovat tyypillisesti eri värillä, marginaalissa, yliviivauksina tai alleviivauksina.
+EHDOTTOMAT SÄÄNNÖT:
+
+A) "text"-kenttään tulee VAIN opiskelijan oma esseeteksti. Numeroitua korjauslistaa,
+   opettajan kommenttia tai otsikkoa "Kommentti" EI saa koskaan sisällyttää "text"-kenttään.
+   Jos korjauslista päätyisi esseetekstiin, koko analyysi menisi pilalle.
+   Älä myöskään sisällytä yläindeksinumeroita esseetekstiin.
+
+B) Litteroi opiskelijan teksti TÄSMÄLLEEN sellaisena kuin se on.
+   - ÄLÄ korjaa kirjoitusvirheitä, yhdyssanavirheitä, pilkkuja tai kongruenssia.
+   - ÄLÄ ota korjauslistan korjauksia käyttöön tekstissä. Teksti jää virheelliseksi.
+   - ÄLÄ paranna sanavalintoja, sanajärjestystä tai tyyliä.
+   - ÄLÄ täydennä keskeneräisiä lauseita.
+   - Jos opiskelija on kirjoittanut "monet ihmiset ajattelee", litteroi juuri niin.
+   - Virheiden säilyttäminen on tämän tehtävän tärkein vaatimus. Siistitty litterointi on hyödytön.
+
+C) Yhdistä numerot: jokaiselle korjauslistan numerolle etsi esseestä samalla numerolla
+   merkitty kohta. Palauta pari: mihin kohtaan korjaus osuu ja mitä opettaja sanoo.
+   Jos et löydä paria, palauta korjaus silti ilman "quote"-kenttää.
 
 Jos jokin kohta on epäselvä, merkitse se hakasulkeisiin: [epäselvä]. Älä arvaa.
 
 Vastaa VAIN JSON-muodossa.`;
 
-function userPrompt(pageCount) {
-  return `Litteroi tämä essee (${pageCount} sivua). Palauta:
+function userPrompt(pageCount, roleHint) {
+  return `Litteroi tämä yksi essee (${pageCount} sivua).${roleHint}
+
+Palauta:
 {
-  "text": "<opiskelijan teksti sanatarkasti, kappaleet erotettuna kahdella rivinvaihdolla>",
+  "text": "<VAIN opiskelijan esseeteksti sanatarkasti, kappaleet erotettuna kahdella rivinvaihdolla>",
   "annotations": [
-    {"quote":"<kohta opiskelijan tekstistä johon merkintä osuu>","note":"<opettajan merkintä>","kind":"korjaus|kysymys|kehu|muu"}
+    {"marker":"<korjauksen numero, esim. 13>","quote":"<esseen kohta johon numero osuu>","note":"<opettajan korjaus tai huomautus>","kind":"pilkku|oikeinkirjoitus|muotoilu|sisalto|kehu|muu"}
   ],
-  "teacherSummary": "<opettajan loppukommentti kokonaisuudessaan, tai tyhjä>",
+  "teacherSummary": "<opettajan yleiskommentti kokonaisuudessaan, tai tyhjä>",
   "gradeSeen": "<näkyvä arvosana tai pistemäärä sellaisenaan, tai tyhjä>",
   "criterionPointsSeen": [{"name":"<arvostelukohteen nimi kuvassa>","points":<luku>}],
   "legible": true,
@@ -83,7 +102,14 @@ export async function transcribeEssay(images, llmConfig, callFn = callJSON) {
   if (!hasVision(llmConfig)) {
     throw new Error('Kuvien lukeminen vaatii Gemini-avaimen tai kuvia tukevan Groq-mallin. Lisää avain Asetuksista.');
   }
-  const parts = [{ type: 'text', text: userPrompt(images.length) }];
+  // Jos käyttäjä on merkinnyt sivujen roolit, kerrotaan ne mallille suoraan —
+  // se on luotettavampaa kuin antaa mallin päätellä ne itse.
+  const roles = images.map(im => im.role).filter(Boolean);
+  const roleHint = roles.length === images.length
+    ? '\n\nSivujen roolit järjestyksessä: ' + images.map((im, i) =>
+        `sivu ${i + 1} = ${im.role === 'feedback' ? 'KOMMENTTISIVU' : 'ESSEESIVU'}`).join(', ') + '.'
+    : '';
+  const parts = [{ type: 'text', text: userPrompt(images.length, roleHint) }];
   images.forEach(img => parts.push({ type: 'image', mime: img.mime, data: img.data }));
 
   const out = await callFn(
@@ -93,7 +119,8 @@ export async function transcribeEssay(images, llmConfig, callFn = callJSON) {
 
   const annotations = (Array.isArray(out.annotations) ? out.annotations : [])
     .filter(a => a && (a.quote || a.note))
-    .map(a => ({ quote: String(a.quote || ''), note: String(a.note || ''), kind: a.kind || 'muu' }));
+    .map(a => ({ marker: a.marker != null ? String(a.marker) : '',
+                 quote: String(a.quote || ''), note: String(a.note || ''), kind: a.kind || 'muu' }));
 
   return {
     text: String(out.text || '').trim(),
@@ -111,9 +138,17 @@ export async function transcribeEssay(images, llmConfig, callFn = callJSON) {
   };
 }
 
+/** Onko numeroitu korjauslista vuotanut esseetekstiin? */
+export function looksLikeCorrectionList(text) {
+  const numbered = (String(text || '').match(/(^|\n)\s*\d{1,2}\)\s/g) || []).length;
+  return numbered >= 5;
+}
+
 /** Litteroinnin luotettavuus lyhyesti — käyttäjälle näytettävä varoitus. */
 export function transcriptionWarnings(t) {
   const w = [];
+  if (looksLikeCorrectionList(t.text))
+    w.push('Esseetekstiin näyttää päätyneen opettajan numeroitu korjauslista. Poista se ennen jatkamista — muuten mittarit laskevat opettajan tekstiä.');
   if (!t.legible) w.push('Malli ilmoitti, ettei kuva ollut kunnolla luettavissa.');
   if (t.uncertainSpans && t.uncertainSpans.length)
     w.push(`${t.uncertainSpans.length} kohtaa jäi epävarmaksi.`);

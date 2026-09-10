@@ -221,6 +221,9 @@
     .occ-note{font-size:.75rem;color:var(--ink-3);margin-top:8px;display:block;line-height:1.45}
     .ob-page{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:6px}
     .ob-page img{width:40px;height:52px;object-fit:cover;border-radius:4px;border:1px solid var(--border)}
+    .ob-role{background:var(--bg);border:1px solid var(--border);border-radius:99px;padding:4px 10px;
+      font-size:.72rem;color:var(--ink-2);cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap}
+    .ob-role.is-feedback{background:var(--gold-l);border-color:var(--gold);color:var(--gold);font-weight:600}
     .ob-page .pname{flex:1;font-size:.82rem;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .ob-fields textarea{width:100%;padding:9px 11px;border:1.5px solid var(--border);border-radius:8px;
       font-family:'DM Sans',sans-serif;font-size:.86rem;background:var(--bg);color:var(--ink);outline:none;resize:vertical;line-height:1.55}
@@ -625,7 +628,8 @@
       <div class="divider" style="margin:16px 0"></div>
       <div class="field-group"><label>Google Gemini -avain (valinnainen)</label>
         <input id="settings-geminikey" type="password" placeholder="AIza..." autocomplete="off"/>
-        <span style="font-size:.75rem;color:var(--ink-3)">Pitkien esseiden analyysiin. Ilman avainta kaikki kulkee Groqin kautta. <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent)">Hae avain</a></span></div>
+        <span style="font-size:.75rem;color:var(--ink-3)">Pitkien esseiden ja kuvien lukemiseen. Ilman avainta kaikki kulkee Groqin kautta. <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent)">Hae avain</a></span></div>
+      <div class="api-note" style="margin-bottom:18px">🔒 Tietosi säilyvät selaimessasi, mutta tekoälytoiminnot lähettävät tekstin tai kuvan palveluntarjoajalle. Googlen ja Groqin <strong>ilmaisilla tasoilla sisältöä voidaan käyttää heidän mallien kehittämiseen</strong>. Älä lähetä aineistoa, jota et halua jaettavan.</div>
       <div class="field-group"><label>Gemini-malli</label>
         <input id="settings-geminimodel" type="text" placeholder="gemini-2.0-flash" spellcheck="false" autocomplete="off"/></div>
       <button class="btn btn-secondary btn-sm" onclick="saveApiKey()">Tallenna</button>
@@ -668,7 +672,8 @@ import { YTL_EXAMS, examSpec, criteriaFor, allowedPoints, snapToScale, levelOf,
 import { analyzeText } from './src/metrics.js';
 import { callJSON, LlmError, PROVIDERS } from './src/provider.js';
 import { verifyAll, isGated, GATED_SKILLS, METRIC_GATES } from './src/antigaming.js';
-import { prepareImage, transcribeEssay, transcriptionWarnings, annotationsToComment } from './src/vision.js';
+import { prepareImage, transcribeEssay, transcriptionWarnings, annotationsToComment,
+         looksLikeCorrectionList } from './src/vision.js';
 import { hasVision } from './src/provider.js';
 import { splitEssays, newEssay, gradeAnchor, metricWeakness, chronologicalCheck,
          clusterComments, deriveStartingElo, analyseEssay, analyseCorpus,
@@ -2252,7 +2257,7 @@ async function obImagesPicked(input) {
   for (const f of files) {
     try {
       const img = await prepareImage(f);
-      obPages.push({ ...img, name: f.name, preview: `data:${img.mime};base64,${img.data}` });
+      obPages.push({ ...img, name: f.name, role: 'essay', preview: `data:${img.mime};base64,${img.data}` });
     } catch (e) { console.warn('Kuvan käsittely epäonnistui:', f.name, e); showToast(`Kuvaa ${f.name} ei voitu lukea.`); }
   }
   input.value = '';
@@ -2268,14 +2273,25 @@ function obMovePage(i, dir) {
 }
 // Sivut ovat yhtä esseetä: raja merkitään, jotta monisivuiset työt pysyvät koossa.
 function obSplitHere(i) { obPages[i].newEssay = !obPages[i].newEssay; renderObPages(); }
+// Kommenttisivu = opettajan numeroitu korjauslista. Sen teksti ei ole esseetä,
+// eikä se saa päätyä mittareihin.
+function obToggleRole(i) {
+  obPages[i].role = obPages[i].role === 'feedback' ? 'essay' : 'feedback';
+  renderObPages();
+}
 
 function renderObPages() {
   const el = document.getElementById('ob-image-list');
   if (!obPages.length) { el.innerHTML = ''; return; }
-  el.innerHTML = `<div style="font-size:.8rem;font-weight:600;margin:6px 0 8px">${obPages.length} sivua — järjestä ja merkitse esseiden rajat</div>` +
+  const fb = obPages.filter(p => p.role === 'feedback').length;
+  el.innerHTML = `<div style="font-size:.8rem;font-weight:600;margin:6px 0 4px">${obPages.length} sivua — järjestä, merkitse esseiden rajat ja kommenttisivut</div>
+    <div class="occ-note" style="margin:0 0 8px">Jos opettajan korjaukset ovat lopussa numeroituna listana, merkitse ne sivut kommenttisivuiksi.${fb ? ` (${fb} merkitty)` : ''}</div>` +
     obPages.map((p, i) => `<div class="ob-page">
       <img src="${p.preview}" alt=""/>
       <span class="pname">${i + 1}. ${escapeHtml(p.name)}${p.newEssay && i > 0 ? ' · uusi essee alkaa' : ''}</span>
+      <button class="ob-role ${p.role === 'feedback' ? 'is-feedback' : ''}" onclick="obToggleRole(${i})"
+              title="Kommenttisivu sisältää opettajan numeroidun korjauslistan, ei esseetekstiä">
+        ${p.role === 'feedback' ? '💬 kommenttisivu' : '📄 esseesivu'}</button>
       <button class="ob-remove" onclick="obMovePage(${i},-1)">▲</button>
       <button class="ob-remove" onclick="obMovePage(${i},1)">▼</button>
       ${i > 0 ? `<button class="ob-remove" onclick="obSplitHere(${i})">${p.newEssay ? '↩ liitä edelliseen' : '✂ uusi essee'}</button>` : ''}
@@ -2299,7 +2315,8 @@ async function obTranscribe() {
   try {
     for (let g = 0; g < groups.length; g++) {
       setStatus(`Luetaan esseetä ${g + 1} / ${groups.length}…`);
-      const t = await transcribeEssay(groups[g].map(p => ({ mime: p.mime, data: p.data })), llmConfig());
+      const t = await transcribeEssay(
+        groups[g].map(p => ({ mime: p.mime, data: p.data, role: p.role || 'essay' })), llmConfig());
       obTranscripts.push({ ...t, pageCount: groups[g].length });
     }
     document.getElementById('ob-step-working').style.display = 'none';
@@ -2319,6 +2336,9 @@ function renderObReview() {
       <div style="font-size:.8rem;font-weight:600;margin-bottom:8px">Essee ${i + 1} · ${t.pageCount} sivua</div>
       <textarea onchange="obTranscriptEdit(${i}, this.value)">${escapeHtml(t.text)}</textarea>
       ${t.annotations.length ? `<div class="occ-note">${t.annotations.length} opettajan merkintää luettu${t.gradeSeen ? ` · arvosana kuvassa: ${escapeHtml(t.gradeSeen)}` : ''}</div>` : ''}
+      ${looksLikeCorrectionList(t.text) ? `<div class="flat-warning" style="margin-top:8px">
+        ⚠ Tähän näyttää päätyneen opettajan numeroitu korjauslista. Poista se tekstistä — muuten
+        mittarit laskevat opettajan tekstiä, ei sinun.</div>` : ''}
       <div class="ob-review-warn">${transcriptionWarnings(t).map(escapeHtml).join(' ')}</div>
     </div>`).join('');
 }
@@ -2842,7 +2862,7 @@ Object.assign(window, {
   moveItem, copyCode, saveApiKey, confirmReset, closeModal, doReset,
   switchSkillView, toggleJournal,
   obDetect, obBack, obRemove, obMerge, obField, obExamType, obAnalyse, obSkip, obFinish, openCorpusImport,
-  obImagesPicked, obRemovePage, obMovePage, obSplitHere, obTranscribe, obTranscriptEdit, obReviewDone, obCritPoints,
+  obImagesPicked, obRemovePage, obMovePage, obSplitHere, obToggleRole, obTranscribe, obTranscriptEdit, obReviewDone, obCritPoints,
   startNextFromQueue,
 });
 
