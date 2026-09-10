@@ -15,6 +15,9 @@ export const PROVIDERS = {
     id: 'groq', label: 'Groq', style: 'openai',
     url: 'https://api.groq.com/openai/v1/chat/completions',
     defaultModel: 'openai/gpt-oss-120b',
+    // Kuvat vaativat multimodaalisen mallin; tekstimalli ei kelpaa.
+    visionModel: 'qwen/qwen3.6-27b',
+    maxImagesPerRequest: 5,
     keysUrl: 'https://console.groq.com/keys',
     // Groqin läpimeno on tiukka: pitkä essee + rubriikki ei mahdu yhteen pyyntöön.
     maxContextHint: 6000,
@@ -24,6 +27,8 @@ export const PROVIDERS = {
     url: (model, key) =>
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
     defaultModel: 'gemini-2.0-flash',
+    visionModel: 'gemini-2.0-flash',
+    maxImagesPerRequest: 16,
     keysUrl: 'https://aistudio.google.com/apikey',
     maxContextHint: 1000000,
   },
@@ -31,6 +36,9 @@ export const PROVIDERS = {
 
 /** Rooli → haluttu tarjoaja. Pitkä konteksti Geminille, nopeat askeleet Groqille. */
 export const ROLE_PREFERENCE = {
+  // Käsiala ja merkinnät sivun päällä: Gemini ensin, sillä sen konteksti kestää
+  // useamman sivun kerralla ja se lukee käsialaa luotettavammin.
+  vision: ['gemini', 'groq'],
   analysis: ['gemini', 'groq'],
   generation: ['groq', 'gemini'],
   classification: ['groq', 'gemini'],
@@ -54,12 +62,20 @@ export function resetProviderState() { for (const k in unsupportedParams) delete
  */
 export function resolveProvider(role, config) {
   const order = ROLE_PREFERENCE[role] || ROLE_PREFERENCE.generation;
+  const wantsVision = role === 'vision';
   for (const id of order) {
     const c = config && config[id];
-    if (c && c.key) return { provider: PROVIDERS[id], model: c.model || PROVIDERS[id].defaultModel, key: c.key };
+    if (!c || !c.key) continue;
+    const p = PROVIDERS[id];
+    if (wantsVision && !p.visionModel) continue;
+    // Kuvarooli käyttää multimodaalista mallia, ei käyttäjän tekstimallia.
+    return { provider: p, model: wantsVision ? p.visionModel : (c.model || p.defaultModel), key: c.key };
   }
   return null;
 }
+
+/** Onko jollakin konfiguroidulla tarjoajalla kuvatuki. */
+export function hasVision(config) { return !!resolveProvider('vision', config); }
 
 export function llmErrorMessage(status, detail, modelName) {
   const d = (detail || '').toLowerCase();
@@ -76,6 +92,16 @@ export function llmErrorMessage(status, detail, modelName) {
     : `Pyyntö hylättiin (HTTP ${status}). Yritä uudelleen tai vaihda malli Asetuksista.`;
 }
 
+/**
+ * Viestin sisältö yhtenäiseen muotoon. Sisältö voi olla merkkijono tai
+ * osaluettelo: [{type:'text',text}, {type:'image',mime,data}] (data = base64).
+ */
+export function toParts(content) {
+  if (typeof content === 'string') return [{ type: 'text', text: content }];
+  if (Array.isArray(content)) return content;
+  return [{ type: 'text', text: String(content ?? '') }];
+}
+
 /* ── Yksi HTTP-kutsu, tarjoajakohtainen runko ── */
 async function request({ provider, model, key, messages, maxTokens, temperature, jsonMode, reasoningEffort }) {
   const skip = skipSet(provider.id + ':' + model);
@@ -86,7 +112,12 @@ async function request({ provider, model, key, messages, maxTokens, temperature,
     const sys = messages.filter(m => m.role === 'system').map(m => m.content).join('\n\n');
     const rest = messages.filter(m => m.role !== 'system');
     body = {
-      contents: rest.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
+      contents: rest.map(m => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: toParts(m.content).map(part => part.type === 'image'
+          ? { inline_data: { mime_type: part.mime, data: part.data } }
+          : { text: part.text }),
+      })),
       generationConfig: { temperature, maxOutputTokens: maxTokens },
     };
     if (sys) body.systemInstruction = { parts: [{ text: sys }] };
@@ -94,7 +125,16 @@ async function request({ provider, model, key, messages, maxTokens, temperature,
   } else {
     url = provider.url;
     headers.Authorization = `Bearer ${key}`;
-    body = { model, messages, temperature, max_tokens: maxTokens };
+    body = {
+      model, temperature, max_tokens: maxTokens,
+      messages: messages.map(m => {
+        const parts = toParts(m.content);
+        if (parts.length === 1 && parts[0].type === 'text') return { role: m.role, content: parts[0].text };
+        return { role: m.role, content: parts.map(part => part.type === 'image'
+          ? { type: 'image_url', image_url: { url: `data:${part.mime};base64,${part.data}` } }
+          : { type: 'text', text: part.text }) };
+      }),
+    };
     if (jsonMode && !skip.has('response_format')) body.response_format = { type: 'json_object' };
     if (reasoningEffort && !skip.has('reasoning_effort')) body.reasoning_effort = reasoningEffort;
   }

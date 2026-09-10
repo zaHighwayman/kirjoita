@@ -12,6 +12,7 @@
 import { analyzeText } from './metrics.js';
 import { callJSON } from './provider.js';
 import { START_ELO } from './elo.js';
+import { criteriaFor, levelOf, SCALE_LEVELS, ytlCriterionFor } from './ytl.js';
 
 /* Äidinkielen ylioppilaskoe on kaksi eri koetta, joilla on eri kriteerit ja
  * eri odotettu muoto. Lukutaidon vastaus on lyhyt, tiivis ja aineistoon
@@ -67,6 +68,7 @@ export function newEssay(fields) {
     grade: fields.grade ?? null,
     gradeScaleMax: fields.gradeScaleMax ?? null,
     teacherComment: fields.teacherComment || null,
+    criterionPoints: fields.criterionPoints || null,
     metrics: fields.metrics || analyzeText(fields.text || ''),
     llmAnalysis: fields.llmAnalysis || null,
   };
@@ -101,6 +103,32 @@ export function gradeAnchor(essays, scope) {
     basis: `mediaani ${(med * 100).toFixed(0)} % asteikosta`,
     n: pool.length,
   };
+}
+
+/* ── 4b+. Arvostelukohteiden pisteet: tarkin lähtötieto ────────────────── */
+/**
+ * Jos opettaja on pisteyttänyt arvostelukohteittain, se kertoo suoraan mikä
+ * ulottuvuus on heikko — tarkemmin kuin kokonaisarvosana tai metriikat.
+ * Kohteen mediaanitaso (0-6) muunnetaan omaksi ankkurikseen.
+ */
+export function criterionAnchors(essays, examType) {
+  const pool = essays.filter(e =>
+    (!examType || e.examType === examType) && e.criterionPoints && e.gradeScaleMax > 0);
+  if (!pool.length) return { anchors: {}, n: 0 };
+
+  const anchors = {};
+  for (const c of criteriaFor(examType || 'kirjoitustaito')) {
+    const levels = pool
+      .filter(e => typeof e.criterionPoints[c.key] === 'number')
+      .map(e => levelOf(e.criterionPoints[c.key], e.gradeScaleMax));
+    const med = median(levels);
+    if (med == null) continue;
+    anchors[c.key] = {
+      elo: Math.round(900 + (med / (SCALE_LEVELS - 1)) * 800),
+      level: med, n: levels.length, weighted: c.weighted,
+    };
+  }
+  return { anchors, n: pool.length };
 }
 
 /* ── 4c. Metriikat: suhteellinen heikkous ───────────────────────────────── */
@@ -216,7 +244,8 @@ export function analyseCorpus(essays) {
     const subset = essays.filter(e => (e.examType || 'muu') === ex);
     const anchor = gradeAnchor(subset, { examType: ex });
     const weakness = metricWeakness(subset, { examType: ex });
-    byExam[ex] = { n: subset.length, anchor, weakness };
+    const crit = criterionAnchors(subset, ex);
+    byExam[ex] = { n: subset.length, anchor, weakness, criterionAnchors: crit };
     if (anchor.n > 0) { weightedSum += anchor.elo * anchor.n; weightTotal += anchor.n; }
     // Heikkous kummassa tahansa kokeessa painaa: otetaan ankarin säätö.
     for (const [skill, adj] of Object.entries(weakness.adjustments)) {
@@ -231,8 +260,19 @@ export function analyseCorpus(essays) {
                       .map(e => `${EXAM_LABELS[e]}: ${byExam[e].anchor.basis}`).join('; ') }
     : { elo: START_ELO, n: 0, basis: 'ei arvosanoja' };
 
+  // Kohdekohtaiset ankkurit yhdistetään: ankarin voittaa, koska heikkous
+  // kummassa tahansa kokeessa on heikkous.
+  const mergedCriteria = {};
+  for (const ex of present) {
+    const a = (byExam[ex].criterionAnchors || {}).anchors || {};
+    for (const [key, v] of Object.entries(a)) {
+      if (!mergedCriteria[key] || v.elo < mergedCriteria[key].elo) mergedCriteria[key] = { ...v, examType: ex };
+    }
+  }
+
   return {
     byExam, present,
+    criterionAnchors: mergedCriteria,
     anchor: combinedAnchor,
     weakness: { adjustments: merged, findings: allFindings, n: essays.length },
     chrono: chronologicalCheck(essays),
@@ -320,7 +360,7 @@ export async function clusterComments(essays, taxonomy, llmConfig, callFn = call
  * Painotettu kaava, ei malli.
  */
 export const COMMENT_PENALTY = -150;
-export function deriveStartingElo(taxonomy, { anchor, weakness, comments }) {
+export function deriveStartingElo(taxonomy, { anchor, weakness, comments, criterionAnchors: critAnchors, examType }) {
   const base = (anchor && anchor.elo) || START_ELO;
   const adj = (weakness && weakness.adjustments) || {};
   const priorityBySkill = {};
@@ -330,9 +370,14 @@ export function deriveStartingElo(taxonomy, { anchor, weakness, comments }) {
     const metricAdj = adj[t.id] || 0;
     const prio = priorityBySkill[t.id];
     const commentAdj = prio ? COMMENT_PENALTY : 0;
-    const elo = Math.round(Math.max(900, Math.min(1700, base + metricAdj + commentAdj)));
+    // Arvostelukohteen oma pistemäärä syrjäyttää kokonaisarvosanan, kun se on tiedossa.
+    const critKey = ytlCriterionFor(t.id, t.crit, examType || 'kirjoitustaito');
+    const critAnchor = critAnchors && critAnchors[critKey];
+    const skillBase = critAnchor ? critAnchor.elo : base;
+    const elo = Math.round(Math.max(900, Math.min(1700, skillBase + metricAdj + commentAdj)));
     const reasons = [];
-    if (anchor && anchor.n) reasons.push(`arvosana-ankkuri ${base} (${anchor.basis})`);
+    if (critAnchor) reasons.push(`arvostelukohde ${critKey} → ${critAnchor.elo} (taso ${critAnchor.level}/6, ${critAnchor.n} esseestä)`);
+    else if (anchor && anchor.n) reasons.push(`arvosana-ankkuri ${base} (${anchor.basis})`);
     if (metricAdj) reasons.push(`metriikka ${metricAdj}`);
     if (commentAdj) reasons.push(`opettajan palaute ${commentAdj} (${prio.theme}, ${prio.essayCount} esseessä)`);
     return {

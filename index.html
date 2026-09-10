@@ -214,6 +214,24 @@
     .cd-up{color:var(--accent)}.cd-down{color:var(--warn)}.cd-flat{color:var(--ink-3)}
     .flat-warning{background:var(--warn-l);border:1px solid var(--warn);border-radius:var(--r);padding:12px 14px;margin-top:12px;font-size:.85rem;color:var(--ink-2);line-height:1.55}
 
+    .ob-import-choice{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px}
+    .ob-choice-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);padding:16px}
+    .ob-choice-card .occ-title{font-weight:600;font-size:.92rem;margin-bottom:6px}
+    .ob-choice-card .occ-body{font-size:.8rem;color:var(--ink-2);line-height:1.5;margin-bottom:12px}
+    .occ-note{font-size:.75rem;color:var(--ink-3);margin-top:8px;display:block;line-height:1.45}
+    .ob-page{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:6px}
+    .ob-page img{width:40px;height:52px;object-fit:cover;border-radius:4px;border:1px solid var(--border)}
+    .ob-page .pname{flex:1;font-size:.82rem;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .ob-fields textarea{width:100%;padding:9px 11px;border:1.5px solid var(--border);border-radius:8px;
+      font-family:'DM Sans',sans-serif;font-size:.86rem;background:var(--bg);color:var(--ink);outline:none;resize:vertical;line-height:1.55}
+    .ob-fields textarea:focus{border-color:var(--accent);background:var(--surface)}
+    .ob-crit-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+    .ob-crit-grid .occ-crit{display:block;font-size:.72rem;color:var(--ink-3);margin-bottom:3px;line-height:1.3}
+    .ob-review{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px}
+    .ob-review textarea{width:100%;min-height:180px;padding:12px;border:1.5px solid var(--border);border-radius:8px;
+      font-family:'DM Sans',sans-serif;font-size:.88rem;line-height:1.7;background:var(--bg);color:var(--ink);outline:none;resize:vertical}
+    .ob-review-warn{font-size:.78rem;color:var(--warn);margin-top:8px;line-height:1.5}
+
     /* SKILLS / JOURNAL */
     #screen-skills{padding-bottom:80px}
     .skill-group{margin-bottom:26px}
@@ -470,6 +488,20 @@
     <p style="font-size:.82rem;color:var(--ink-3);margin-bottom:22px">Kaikki pysyy selaimessasi. Voit myös ohittaa tämän.</p>
 
     <div id="ob-step-paste">
+      <div class="ob-import-choice">
+        <div class="ob-choice-card">
+          <div class="occ-title">📷 Kuvista</div>
+          <p class="occ-body">Valokuvaa tai skannaa merkatut esseet. Opettajan merkinnät tekstin päällä luetaan mukaan.</p>
+          <input type="file" id="ob-images" accept="image/*" multiple style="display:none" onchange="obImagesPicked(this)"/>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('ob-images').click()">Valitse kuvat</button>
+          <div class="occ-note" id="ob-vision-note"></div>
+        </div>
+        <div class="ob-choice-card">
+          <div class="occ-title">⌨️ Tekstinä</div>
+          <p class="occ-body">Jos esseet ovat jo tekstitiedostona, liitä ne alle.</p>
+        </div>
+      </div>
+      <div id="ob-image-list"></div>
       <div class="field-group">
         <label>Liitä esseet — erota ne kolmella viivalla (---) tai tyhjällä rivillä</label>
         <textarea id="ob-paste" class="writing-area" style="min-height:220px" placeholder="Liitä tähän yksi tai useampi essee…"></textarea>
@@ -488,6 +520,20 @@
       <div id="ob-essays"></div>
       <div class="submit-row">
         <button class="btn btn-primary" id="ob-analyse-btn" onclick="obAnalyse()">Analysoi ja aloita →</button>
+        <button class="btn btn-secondary" onclick="obBack()">← Takaisin</button>
+      </div>
+    </div>
+
+    <div id="ob-step-review" style="display:none">
+      <p class="section-title">Tarkista litterointi</p>
+      <div class="flat-warning" style="margin-top:0;margin-bottom:16px">
+        Kielimalli korjaa herkästi kirjoitusvirheitä huomaamattaan. Jos se on siistinyt tekstiäsi,
+        kieliasun mittarit mittaavat sen kielitaitoa eivätkä sinun — korjaa teksti vastaamaan
+        alkuperäistä ennen kuin jatkat.
+      </div>
+      <div id="ob-review-list"></div>
+      <div class="submit-row">
+        <button class="btn btn-primary" onclick="obReviewDone()">Litterointi on oikein →</button>
         <button class="btn btn-secondary" onclick="obBack()">← Takaisin</button>
       </div>
     </div>
@@ -622,6 +668,8 @@ import { YTL_EXAMS, examSpec, criteriaFor, allowedPoints, snapToScale, levelOf,
 import { analyzeText } from './src/metrics.js';
 import { callJSON, LlmError, PROVIDERS } from './src/provider.js';
 import { verifyAll, isGated, GATED_SKILLS, METRIC_GATES } from './src/antigaming.js';
+import { prepareImage, transcribeEssay, transcriptionWarnings, annotationsToComment } from './src/vision.js';
+import { hasVision } from './src/provider.js';
 import { splitEssays, newEssay, gradeAnchor, metricWeakness, chronologicalCheck,
          clusterComments, deriveStartingElo, analyseEssay, analyseCorpus,
          GENRES, GENRE_LABELS, EXAM_TYPES, EXAM_LABELS, GENRES_BY_EXAM } from './src/corpus.js';
@@ -1034,7 +1082,7 @@ async function enterApp() {
   // Ensimmäisellä kerralla korpuksen sisäänotto; ohitettavissa.
   let done = null;
   try { done = await get('meta', 'corpus:done'); } catch (e) {}
-  if (!done) { showScreen('onboarding'); return; }
+  if (!done) { obVisionNote(); showScreen('onboarding'); return; }
   document.getElementById('screen-welcome').classList.remove('active');
   document.getElementById('app-topbar').style.display = '';
   document.getElementById('app-nav').style.display = '';
@@ -2185,6 +2233,120 @@ async function startNextFromQueue() {
 ═══════════════════════════════════════ */
 let obDrafts = [];
 
+let obPages = [];        // valitut sivut ennen litterointia
+let obTranscripts = [];  // litteroinnit tarkistusta varten
+
+function obVisionNote() {
+  const el = document.getElementById('ob-vision-note');
+  if (!el) return;
+  el.textContent = hasVision(llmConfig())
+    ? 'Käytössä: kuvat luetaan automaattisesti.'
+    : 'Vaatii Gemini-avaimen (tai kuvia tukevan Groq-mallin). Lisää se Asetuksista.';
+}
+
+async function obImagesPicked(input) {
+  const files = [...input.files];
+  if (!files.length) return;
+  if (!hasVision(llmConfig())) { showToast('Lisää ensin Gemini-avain Asetuksista.'); return; }
+  showToast('Valmistellaan kuvia…');
+  for (const f of files) {
+    try {
+      const img = await prepareImage(f);
+      obPages.push({ ...img, name: f.name, preview: `data:${img.mime};base64,${img.data}` });
+    } catch (e) { console.warn('Kuvan käsittely epäonnistui:', f.name, e); showToast(`Kuvaa ${f.name} ei voitu lukea.`); }
+  }
+  input.value = '';
+  renderObPages();
+}
+
+function obRemovePage(i) { obPages.splice(i, 1); renderObPages(); }
+function obMovePage(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= obPages.length) return;
+  [obPages[i], obPages[j]] = [obPages[j], obPages[i]];
+  renderObPages();
+}
+// Sivut ovat yhtä esseetä: raja merkitään, jotta monisivuiset työt pysyvät koossa.
+function obSplitHere(i) { obPages[i].newEssay = !obPages[i].newEssay; renderObPages(); }
+
+function renderObPages() {
+  const el = document.getElementById('ob-image-list');
+  if (!obPages.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div style="font-size:.8rem;font-weight:600;margin:6px 0 8px">${obPages.length} sivua — järjestä ja merkitse esseiden rajat</div>` +
+    obPages.map((p, i) => `<div class="ob-page">
+      <img src="${p.preview}" alt=""/>
+      <span class="pname">${i + 1}. ${escapeHtml(p.name)}${p.newEssay && i > 0 ? ' · uusi essee alkaa' : ''}</span>
+      <button class="ob-remove" onclick="obMovePage(${i},-1)">▲</button>
+      <button class="ob-remove" onclick="obMovePage(${i},1)">▼</button>
+      ${i > 0 ? `<button class="ob-remove" onclick="obSplitHere(${i})">${p.newEssay ? '↩ liitä edelliseen' : '✂ uusi essee'}</button>` : ''}
+      <button class="ob-remove" onclick="obRemovePage(${i})">Poista</button>
+    </div>`).join('') +
+    `<div class="submit-row"><button class="btn btn-primary" onclick="obTranscribe()">Lue kuvista teksti →</button></div>`;
+}
+
+async function obTranscribe() {
+  // Sivut ryhmiin: uusi essee alkaa siitä, mihin raja on merkitty.
+  const groups = [];
+  obPages.forEach((p, i) => {
+    if (i === 0 || p.newEssay) groups.push([]);
+    groups[groups.length - 1].push(p);
+  });
+  document.getElementById('ob-step-paste').style.display = 'none';
+  document.getElementById('ob-step-working').style.display = '';
+  const setStatus = t => { document.getElementById('ob-working-text').textContent = t; };
+
+  obTranscripts = [];
+  try {
+    for (let g = 0; g < groups.length; g++) {
+      setStatus(`Luetaan esseetä ${g + 1} / ${groups.length}…`);
+      const t = await transcribeEssay(groups[g].map(p => ({ mime: p.mime, data: p.data })), llmConfig());
+      obTranscripts.push({ ...t, pageCount: groups[g].length });
+    }
+    document.getElementById('ob-step-working').style.display = 'none';
+    document.getElementById('ob-step-review').style.display = '';
+    renderObReview();
+  } catch (e) {
+    console.error('Litterointi epäonnistui:', e);
+    document.getElementById('ob-step-working').style.display = 'none';
+    document.getElementById('ob-step-paste').style.display = '';
+    showToast(e.message || 'Litterointi epäonnistui.');
+  }
+}
+
+function renderObReview() {
+  document.getElementById('ob-review-list').innerHTML = obTranscripts.map((t, i) => `
+    <div class="ob-review">
+      <div style="font-size:.8rem;font-weight:600;margin-bottom:8px">Essee ${i + 1} · ${t.pageCount} sivua</div>
+      <textarea onchange="obTranscriptEdit(${i}, this.value)">${escapeHtml(t.text)}</textarea>
+      ${t.annotations.length ? `<div class="occ-note">${t.annotations.length} opettajan merkintää luettu${t.gradeSeen ? ` · arvosana kuvassa: ${escapeHtml(t.gradeSeen)}` : ''}</div>` : ''}
+      <div class="ob-review-warn">${transcriptionWarnings(t).map(escapeHtml).join(' ')}</div>
+    </div>`).join('');
+}
+function obTranscriptEdit(i, value) { obTranscripts[i].text = value; }
+
+function obReviewDone() {
+  // Litteroinnit muuttuvat luonnoksiksi, opettajan merkinnät kommenttikentäksi.
+  obDrafts = obTranscripts.map(t => {
+    const d = newEssay({ text: t.text, source: 'pasted', teacherComment: annotationsToComment(t) });
+    d.fromImages = t.pageCount;
+    d.annotationCount = t.annotations.length;
+    d.visionAnnotations = t.annotations;
+    if (t.criterionPointsSeen && t.criterionPointsSeen.length) d.criterionPointsSeen = t.criterionPointsSeen;
+    return d;
+  });
+  document.getElementById('ob-step-review').style.display = 'none';
+  document.getElementById('ob-step-tag').style.display = '';
+  renderObDrafts();
+}
+
+function obCritPoints(i, key, value) {
+  const e = obDrafts[i];
+  e.criterionPoints = e.criterionPoints || {};
+  if (value === '') delete e.criterionPoints[key];
+  else e.criterionPoints[key] = Number(value);
+  if (!Object.keys(e.criterionPoints).length) delete e.criterionPoints;
+}
+
 function obDetect() {
   const raw = document.getElementById('ob-paste').value;
   const parts = splitEssays(raw);
@@ -2195,7 +2357,9 @@ function obDetect() {
   renderObDrafts();
 }
 function obBack() {
-  document.getElementById('ob-step-tag').style.display = 'none';
+  ['ob-step-tag','ob-step-review','ob-step-working','ob-step-done'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.style.display = 'none';
+  });
   document.getElementById('ob-step-paste').style.display = '';
 }
 function obRemove(i) { obDrafts.splice(i, 1); if (!obDrafts.length) { obBack(); return; } renderObDrafts(); }
@@ -2245,10 +2409,19 @@ function renderObDrafts() {
           <input type="number" step="0.5" min="0" placeholder="pisteet tai arvosana" value="${e.grade ?? ''}" onchange="obField(${i},'grade',this.value)"/></div>
         <div><label>Asteikon maksimi</label>
           <input type="number" min="1" placeholder="YO: 60, kurssi: esim. 6" value="${e.gradeScaleMax ?? ''}" onchange="obField(${i},'gradeScaleMax',this.value)"/></div>
-        <div class="ob-full"><label>Opettajan kommentti</label>
-          <input type="text" placeholder="Liitä opettajan palaute sellaisenaan" value="${escapeHtml(e.teacherComment || '')}" onchange="obField(${i},'teacherComment',this.value)"/></div>
+        <div class="ob-full"><label>Opettajan arvio ja palaute</label>
+          <textarea rows="3" placeholder="Liitä opettajan palaute sellaisenaan, myös useampi kappale" onchange="obField(${i},'teacherComment',this.value)">${escapeHtml(e.teacherComment || '')}</textarea></div>
+        <div class="ob-full"><label>Pisteet arvostelukohteittain <span style="font-weight:400;color:var(--ink-3)">(jos tiedossa — tämä on tarkin lähtötieto)</span></label>
+          <div class="ob-crit-grid">
+            ${criteriaFor(e.examType === 'lukutaito' ? 'lukutaito' : 'kirjoitustaito').map(c => `
+              <div><span class="occ-crit">${c.name}${c.weighted ? ' ★' : ''}</span>
+              <input type="number" min="0" step="1" placeholder="–"
+                     value="${(e.criterionPoints && e.criterionPoints[c.key] != null) ? e.criterionPoints[c.key] : ''}"
+                     onchange="obCritPoints(${i},'${c.key}',this.value)"/></div>`).join('')}
+          </div></div>
         <div class="ob-full"><label>Tehtävänanto</label>
           <input type="text" placeholder="Jos tiedossa" value="${escapeHtml(e.prompt || '')}" onchange="obField(${i},'prompt',this.value)"/></div>
+        ${e.fromImages ? `<div class="ob-full"><span class="occ-note">📷 Litteroitu ${e.fromImages} kuvasta${e.annotationCount ? ` · ${e.annotationCount} opettajan merkintää luettu` : ''}</span></div>` : ''}
       </div>
     </div>`).join('');
 }
@@ -2268,6 +2441,7 @@ async function obAnalyse() {
     const all = await getAll('essays');
     const corpus = analyseCorpus(all.length ? all : obDrafts);
     const { anchor, weakness, chrono, byExam } = corpus;
+    const critAnchors = corpus.criterionAnchors || {};
 
     // 4a on ainoa kutsu, joka tarvitaan ennen aloitusta.
     let comments = { themes: [], priority: [], n: 0 };
@@ -2277,7 +2451,10 @@ async function obAnalyse() {
       catch (err) { console.warn('Kommenttien ryhmittely epäonnistui:', err); showToast('Kommentteja ei voitu ryhmitellä — lähtötasot johdetaan muusta näytöstä.'); }
     }
 
-    const derived = deriveStartingElo(SKILL_TAXONOMY, { anchor, weakness, comments });
+    const derived = deriveStartingElo(SKILL_TAXONOMY, {
+      anchor, weakness, comments, criterionAnchors: critAnchors,
+      examType: mostCommonExam(obDrafts),
+    });
     await loadSkills();
     // Lähtötasot kirjoitetaan vain jos harjoituksia ei ole vielä tehty. Portaikko
     // mittaa taitoa suoraan; korpus on arvio. Arvio ei saa kumota mittausta.
@@ -2297,7 +2474,7 @@ async function obAnalyse() {
     await put('meta', { key: 'corpus:derivation', value: { anchor, weakness, chrono, comments, byExam, at: new Date().toISOString() } });
     await put('meta', { key: 'corpus:done', value: true });
 
-    renderObSummary(derived, anchor, weakness, comments, chrono, attemptCount > 0, byExam);
+    renderObSummary(derived, anchor, weakness, comments, chrono, attemptCount > 0, byExam, critAnchors);
     document.getElementById('ob-step-working').style.display = 'none';
     document.getElementById('ob-step-done').style.display = '';
 
@@ -2311,13 +2488,20 @@ async function obAnalyse() {
   }
 }
 
+// Kumpaa koetta korpus pääosin edustaa — ratkaisee, minkä kokeen arvostelukohteisiin
+// osataidot kytketään lähtötasoja johdettaessa.
+function mostCommonExam(essays) {
+  const c = {};
+  essays.forEach(e => { c[e.examType] = (c[e.examType] || 0) + 1; });
+  return Object.keys(c).sort((a, b) => c[b] - c[a])[0] === 'lukutaito' ? 'lukutaito' : 'kirjoitustaito';
+}
 function mostCommonGenre(essays) {
   const c = {};
   essays.forEach(e => { c[e.genre] = (c[e.genre] || 0) + 1; });
   return Object.keys(c).sort((a, b) => c[b] - c[a])[0] || 'muu';
 }
 
-function renderObSummary(derived, anchor, weakness, comments, chrono, appendOnly, byExam) {
+function renderObSummary(derived, anchor, weakness, comments, chrono, appendOnly, byExam, critAnchorsShown) {
   const weakest = [...derived].sort((a, b) => a.elo - b.elo).slice(0, 5);
   const lines = [];
   lines.push(appendOnly
@@ -2332,6 +2516,10 @@ function renderObSummary(derived, anchor, weakness, comments, chrono, appendOnly
   if (comments.priority && comments.priority.length) {
     lines.push(`<div style="margin-top:8px">Opettajan palautteesta nousi ${comments.priority.length} toistuvaa teemaa: ` +
       comments.priority.map(p => `<strong>${escapeHtml(p.theme)}</strong> (${p.essayCount} esseessä)`).join(', ') + '.</div>');
+  }
+  if (critAnchorsShown && Object.keys(critAnchorsShown).length) {
+    lines.push(`<div style="margin-top:8px">Arvostelukohteiden pisteistä johdettu: ` +
+      Object.entries(critAnchorsShown).map(([k, v]) => `${escapeHtml(k)} taso ${v.level}/6`).join(', ') + '.</div>');
   }
   if (weakness.findings && weakness.findings.length) {
     lines.push(`<div style="margin-top:8px">Metriikoista poikkesi: ` +
@@ -2380,7 +2568,9 @@ async function queueEssayAnalysis(essays) {
 // lähtötasoja EI kirjoiteta yli — portaikko on silloin jo parempi arvio kuin
 // korpuksesta johdettu luku. Esseet liitetään silti mukaan kehityskäyrään.
 async function openCorpusImport() {
-  obDrafts = [];
+  obDrafts = []; obPages = []; obTranscripts = [];
+  const il = document.getElementById('ob-image-list'); if (il) il.innerHTML = '';
+  obVisionNote();
   document.getElementById('ob-paste').value = '';
   document.getElementById('ob-step-paste').style.display = '';
   ['ob-step-tag','ob-step-working','ob-step-done'].forEach(id => document.getElementById(id).style.display = 'none');
@@ -2652,6 +2842,7 @@ Object.assign(window, {
   moveItem, copyCode, saveApiKey, confirmReset, closeModal, doReset,
   switchSkillView, toggleJournal,
   obDetect, obBack, obRemove, obMerge, obField, obExamType, obAnalyse, obSkip, obFinish, openCorpusImport,
+  obImagesPicked, obRemovePage, obMovePage, obSplitHere, obTranscribe, obTranscriptEdit, obReviewDone, obCritPoints,
   startNextFromQueue,
 });
 

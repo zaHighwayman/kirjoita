@@ -1,7 +1,7 @@
 /* Testit korpusmoduulille (§4). */
 import { splitEssays, newEssay, median, gradeAnchor, metricWeakness, bandsFor,
          chronologicalCheck, clusterComments, deriveStartingElo, analyseEssay,
-         analyseCorpus, GENRES, EXAM_TYPES, EXAM_LABELS, GENRES_BY_EXAM, EXAM_BANDS,
+         analyseCorpus, criterionAnchors, GENRES, EXAM_TYPES, EXAM_LABELS, GENRES_BY_EXAM, EXAM_BANDS,
          COMMENT_PENALTY, METRIC_TO_SKILLS } from '../src/corpus.js';
 import { START_ELO } from '../src/elo.js';
 
@@ -155,6 +155,41 @@ export async function run() {
   ok('kommentit: näyttö talteen', cl.priority[0].evidence.length === 2);
   ok('kommentit: ei kommentteja → ohitetaan',
      (await clusterComments([mk({})], TAX, {}, fakeCluster)).skipped === 'ei kommentteja');
+
+  /* ── Arvostelukohteiden pisteet ── */
+  const critGraded = [
+    newEssay({ text:'a', examType:'kirjoitustaito', gradeScaleMax:60,
+               criterionPoints:{ nakokulma:50, aineistot:50, rakenne:20, kieli:50, kokonaiskuva:40 } }),
+    newEssay({ text:'b', examType:'kirjoitustaito', gradeScaleMax:60,
+               criterionPoints:{ nakokulma:50, aineistot:40, rakenne:20, kieli:50, kokonaiskuva:40 } }),
+  ];
+  const ca = criterionAnchors(critGraded, 'kirjoitustaito');
+  ok('kohdepisteet: kaikki kohteet ankkuroitu', Object.keys(ca.anchors).length === 5, Object.keys(ca.anchors).join(','));
+  ok('kohdepisteet: heikko kohde saa matalan Elon',
+     ca.anchors.rakenne.elo < ca.anchors.kieli.elo, ca.anchors.rakenne.elo + ' vs ' + ca.anchors.kieli.elo);
+  ok('kohdepisteet: taso 0-6', Object.values(ca.anchors).every(a => a.level >= 0 && a.level <= 6));
+  ok('kohdepisteet: 20/60 → taso 2', ca.anchors.rakenne.level === 2, String(ca.anchors.rakenne.level));
+  ok('kohdepisteet: ilman pisteitä tyhjä', criterionAnchors([newEssay({ text:'x' })], 'kirjoitustaito').n === 0);
+
+  // Kohdeankkuri syrjäyttää kokonaisarvosanan juuri niissä taidoissa, joita se koskee
+  const TAX2 = [
+    { id:'rak-kappalejako', name:'Kappalejako', crit:'rakenne' },
+    { id:'kie-pilkku', name:'Pilkkusäännöt', crit:'kieliasu' },
+  ];
+  const derivedCrit = deriveStartingElo(TAX2, {
+    anchor: { elo: 1400, n: 2, basis:'testi' }, weakness: {}, comments: {},
+    criterionAnchors: ca.anchors, examType: 'kirjoitustaito',
+  });
+  const rk = derivedCrit.find(d => d.id === 'rak-kappalejako');
+  const kp = derivedCrit.find(d => d.id === 'kie-pilkku');
+  ok('kohdepisteet: rakenne-taito seuraa Tekstin rakenne -pisteitä',
+     rk.elo === ca.anchors.rakenne.elo, rk.elo + ' vs ' + ca.anchors.rakenne.elo);
+  ok('kohdepisteet: kieliasu-taito seuraa Kieli ja ilmaisu -pisteitä',
+     kp.elo === ca.anchors.kieli.elo, kp.elo + ' vs ' + ca.anchors.kieli.elo);
+  ok('kohdepisteet: heikko kohde tuottaa heikomman taidon', rk.elo < kp.elo);
+  ok('kohdepisteet: perustelu kertoo lähteen', /arvostelukohde rakenne/.test(rk.derivation), rk.derivation);
+  ok('kohdepisteet: ilman kohdepisteitä käytetään kokonaisankkuria',
+     deriveStartingElo(TAX2, { anchor:{elo:1400,n:2,basis:'t'}, weakness:{}, comments:{} })[0].elo === 1400);
 
   /* ── Yhdistäminen ── */
   const derived = deriveStartingElo(TAX, { anchor: a, weakness: w, comments: cl });
