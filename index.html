@@ -214,7 +214,7 @@
     .cd-up{color:var(--accent)}.cd-down{color:var(--warn)}.cd-flat{color:var(--ink-3)}
     .flat-warning{background:var(--warn-l);border:1px solid var(--warn);border-radius:var(--r);padding:12px 14px;margin-top:12px;font-size:.85rem;color:var(--ink-2);line-height:1.55}
 
-    .ob-import-choice{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px}
+    .ob-import-choice{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:18px}
     .ob-choice-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);padding:16px}
     .ob-choice-card .occ-title{font-weight:600;font-size:.92rem;margin-bottom:6px}
     .ob-choice-card .occ-body{font-size:.8rem;color:var(--ink-2);line-height:1.5;margin-bottom:12px}
@@ -500,8 +500,25 @@
           <div class="occ-note" id="ob-vision-note"></div>
         </div>
         <div class="ob-choice-card">
+          <div class="occ-title">📋 Toisella tekoälyllä</div>
+          <p class="occ-body">Ei API-avainta? Kopioi kehote, anna se kuvien kanssa Geminille tai ChatGPT:lle, ja liitä vastaus takaisin.</p>
+          <button class="btn btn-secondary btn-sm" onclick="obCopyPrompt()">Kopioi kehote</button>
+          <button class="btn btn-ghost btn-sm" onclick="obToggleManual()">Liitä vastaus</button>
+        </div>
+        <div class="ob-choice-card">
           <div class="occ-title">⌨️ Tekstinä</div>
-          <p class="occ-body">Jos esseet ovat jo tekstitiedostona, liitä ne alle.</p>
+          <p class="occ-body">Jos esseet ovat jo tekstitiedostona, liitä ne alimpaan kenttään.</p>
+        </div>
+      </div>
+      <div id="ob-manual" style="display:none">
+        <div class="field-group">
+          <label>Liitä tekoälyn palauttama JSON</label>
+          <textarea id="ob-manual-json" class="writing-area" style="min-height:160px"
+                    placeholder='{"text":"…","annotations":[…],"teacherSummary":"…"}'></textarea>
+        </div>
+        <div class="submit-row">
+          <button class="btn btn-primary" onclick="obUseManual()">Lue vastaus →</button>
+          <button class="btn btn-ghost" onclick="obToggleManual()">Peruuta</button>
         </div>
       </div>
       <div id="ob-image-list"></div>
@@ -673,7 +690,7 @@ import { analyzeText } from './src/metrics.js';
 import { callJSON, LlmError, PROVIDERS } from './src/provider.js';
 import { verifyAll, isGated, GATED_SKILLS, METRIC_GATES } from './src/antigaming.js';
 import { prepareImage, transcribeEssay, transcriptionWarnings, annotationsToComment,
-         looksLikeCorrectionList } from './src/vision.js';
+         looksLikeCorrectionList, manualPrompt, parseManualTranscript } from './src/vision.js';
 import { hasVision } from './src/provider.js';
 import { splitEssays, newEssay, gradeAnchor, metricWeakness, chronologicalCheck,
          clusterComments, deriveStartingElo, analyseEssay, analyseCorpus,
@@ -2249,6 +2266,35 @@ function obVisionNote() {
     : 'Vaatii Gemini-avaimen (tai kuvia tukevan Groq-mallin). Lisää se Asetuksista.';
 }
 
+function obCopyPrompt() {
+  const text = manualPrompt();
+  navigator.clipboard.writeText(text)
+    .then(() => showToast('Kehote kopioitu. Liitä se tekoälylle yhdessä kuvien kanssa.'))
+    .catch(() => {
+      // Leikepöytä voi olla estetty — näytetään teksti valittavaksi.
+      document.getElementById('ob-manual').style.display = '';
+      const ta = document.getElementById('ob-manual-json');
+      ta.value = text; ta.select();
+      showToast('Kopiointi ei onnistunut. Kehote on kentässä — kopioi se käsin.');
+    });
+}
+function obToggleManual() {
+  const el = document.getElementById('ob-manual');
+  el.style.display = el.style.display === 'none' ? '' : 'none';
+  if (el.style.display === '') document.getElementById('ob-manual-json').focus();
+}
+function obUseManual() {
+  const raw = document.getElementById('ob-manual-json').value;
+  const { transcripts, parsed, error } = parseManualTranscript(raw);
+  if (!transcripts.length) { showToast(error || 'Vastausta ei voitu lukea.'); return; }
+  if (error) showToast(error);
+  else showToast(`${transcripts.length} essee${transcripts.length === 1 ? '' : 'tä'} luettu.`);
+  obTranscripts = transcripts;
+  document.getElementById('ob-step-paste').style.display = 'none';
+  document.getElementById('ob-step-review').style.display = '';
+  renderObReview();
+}
+
 async function obImagesPicked(input) {
   const files = [...input.files];
   if (!files.length) return;
@@ -2333,7 +2379,7 @@ async function obTranscribe() {
 function renderObReview() {
   document.getElementById('ob-review-list').innerHTML = obTranscripts.map((t, i) => `
     <div class="ob-review">
-      <div style="font-size:.8rem;font-weight:600;margin-bottom:8px">Essee ${i + 1} · ${t.pageCount} sivua</div>
+      <div style="font-size:.8rem;font-weight:600;margin-bottom:8px">Essee ${i + 1}${t.pageCount ? ` · ${t.pageCount} sivua` : (t.source === 'manual' ? ' · liitetty' : '')}</div>
       <textarea onchange="obTranscriptEdit(${i}, this.value)">${escapeHtml(t.text)}</textarea>
       ${t.annotations.length ? `<div class="occ-note">${t.annotations.length} opettajan merkintää luettu${t.gradeSeen ? ` · arvosana kuvassa: ${escapeHtml(t.gradeSeen)}` : ''}</div>` : ''}
       ${looksLikeCorrectionList(t.text) ? `<div class="flat-warning" style="margin-top:8px">
@@ -2863,6 +2909,7 @@ Object.assign(window, {
   switchSkillView, toggleJournal,
   obDetect, obBack, obRemove, obMerge, obField, obExamType, obAnalyse, obSkip, obFinish, openCorpusImport,
   obImagesPicked, obRemovePage, obMovePage, obSplitHere, obToggleRole, obTranscribe, obTranscriptEdit, obReviewDone, obCritPoints,
+  obCopyPrompt, obToggleManual, obUseManual,
   startNextFromQueue,
 });
 

@@ -144,6 +144,97 @@ export function looksLikeCorrectionList(text) {
   return numbered >= 5;
 }
 
+/* ── Manuaalinen reitti: litterointi millä tahansa tekoälyllä ──────────── */
+/**
+ * Kaikilla ei ole API-avainta, ja kuvien lataaminen chat-käyttöliittymään on
+ * usein helpompaa kuin avaimen hankkiminen. Sama kehote toimii Geminissä,
+ * ChatGPT:ssä tai Claudessa: käyttäjä liittää kuvat, kopioi vastauksen ja
+ * liittää sen takaisin tänne.
+ *
+ * Vastaus pyydetään JSONina, jotta merkinnät ja korjaukset säilyvät rakenteisina
+ * eivätkä muutu pelkäksi tekstimassaksi.
+ */
+export function manualPrompt() {
+  return `${SYSTEM}
+
+---
+
+Liitä tähän viestiin kuvat esseestä (ja mahdolliset kommenttisivut). Litteroi ne yllä olevien sääntöjen mukaan.
+
+Jos kuvissa on useita eri esseitä, palauta TAULUKKO objekteja. Jos vain yksi essee, palauta yksi objekti.
+
+Palauta VAIN JSON, ei mitään muuta tekstiä:
+
+{
+  "text": "<VAIN opiskelijan esseeteksti sanatarkasti, kappaleet erotettuna kahdella rivinvaihdolla>",
+  "annotations": [
+    {"marker":"<korjauksen numero>","quote":"<esseen kohta johon numero osuu>","note":"<opettajan korjaus>","kind":"pilkku|oikeinkirjoitus|muotoilu|sisalto|kehu|muu"}
+  ],
+  "teacherSummary": "<opettajan yleiskommentti kokonaisuudessaan, tai tyhjä>",
+  "gradeSeen": "<näkyvä arvosana tai pistemäärä, tai tyhjä>",
+  "criterionPointsSeen": [{"name":"<arvostelukohteen nimi>","points":<luku>}],
+  "legible": true,
+  "uncertainSpans": []
+}`;
+}
+
+function coerceTranscript(o, index) {
+  const anns = (Array.isArray(o.annotations) ? o.annotations : [])
+    .filter(a => a && (a.quote || a.note))
+    .map(a => ({ marker: a.marker != null ? String(a.marker) : '',
+                 quote: String(a.quote || ''), note: String(a.note || ''), kind: a.kind || 'muu' }));
+  return {
+    text: String(o.text || '').trim(),
+    annotations: anns,
+    teacherSummary: String(o.teacherSummary || '').trim(),
+    gradeSeen: String(o.gradeSeen || '').trim(),
+    criterionPointsSeen: (Array.isArray(o.criterionPointsSeen) ? o.criterionPointsSeen : [])
+      .filter(c => c && typeof c.points === 'number')
+      .map(c => ({ name: String(c.name || ''), points: c.points })),
+    legible: o.legible !== false,
+    uncertainSpans: (Array.isArray(o.uncertainSpans) ? o.uncertainSpans : []).map(String),
+    needsReview: true,
+    pages: 0,
+    source: 'manual',
+    index,
+  };
+}
+
+/**
+ * Lukee liitetyn vastauksen. Ensisijaisesti JSON; jos se ei kelpaa, teksti
+ * otetaan sellaisenaan esseenä, jottei käyttäjän työ mene hukkaan.
+ * @returns {{transcripts:Array, parsed:boolean, error:string|null}}
+ */
+export function parseManualTranscript(raw) {
+  const text = String(raw || '').trim();
+  if (!text) return { transcripts: [], parsed: false, error: 'Tyhjä syöte.' };
+
+  const cleaned = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+  let data = null;
+  try { data = JSON.parse(cleaned); }
+  catch {
+    const a = cleaned.indexOf('['), b = cleaned.lastIndexOf(']');
+    if (a >= 0 && b > a) { try { data = JSON.parse(cleaned.slice(a, b + 1)); } catch {} }
+    if (!data) {
+      const c = cleaned.indexOf('{'), d = cleaned.lastIndexOf('}');
+      if (c >= 0 && d > c) { try { data = JSON.parse(cleaned.slice(c, d + 1)); } catch {} }
+    }
+  }
+
+  if (!data) {
+    // Ei JSONia — otetaan teksti sellaisenaan yhtenä esseenä.
+    return {
+      transcripts: [coerceTranscript({ text: cleaned }, 0)],
+      parsed: false,
+      error: 'Vastaus ei ollut JSONia, joten se luettiin pelkkänä esseetekstinä. Opettajan merkinnät jäivät pois.',
+    };
+  }
+  const list = Array.isArray(data) ? data : [data];
+  const transcripts = list.filter(o => o && typeof o === 'object').map(coerceTranscript);
+  if (!transcripts.length) return { transcripts: [], parsed: false, error: 'JSONista ei löytynyt esseitä.' };
+  return { transcripts, parsed: true, error: null };
+}
+
 /** Litteroinnin luotettavuus lyhyesti — käyttäjälle näytettävä varoitus. */
 export function transcriptionWarnings(t) {
   const w = [];

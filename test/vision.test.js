@@ -1,6 +1,6 @@
 /* Testit kuvalitteroinnille ja kuvatuelle. */
 import { transcribeEssay, transcriptionWarnings, annotationsToComment, looksLikeCorrectionList,
-         MAX_IMAGE_EDGE } from '../src/vision.js';
+         manualPrompt, parseManualTranscript, MAX_IMAGE_EDGE } from '../src/vision.js';
 import { toParts, resolveProvider, hasVision, PROVIDERS } from '../src/provider.js';
 
 const results = [];
@@ -132,6 +132,40 @@ Kommentti
     teacherSummary:'', gradeSeen:'', criterionPointsSeen:[], legible:true, uncertainSpans:[] }));
   ok('merkintä: numero säilyy', withMarkers.annotations[0].marker === '13');
   ok('merkintä: laji säilyy', withMarkers.annotations[0].kind === 'muotoilu');
+
+  /* ── Manuaalinen reitti (ilman API-avainta) ── */
+  const mp = manualPrompt();
+  ok('manuaali: kehote sisältää sanatarkkuussäännön', /ÄLÄ korjaa kirjoitusvirheitä/.test(mp));
+  ok('manuaali: kehote kieltää korjauslistan tekstissä', /Numeroitua korjauslistaa/.test(mp));
+  ok('manuaali: kehote pyytää JSONia', /Palauta VAIN JSON/.test(mp));
+  ok('manuaali: kehote kertoo usean esseen tapauksen', /TAULUKKO objekteja/.test(mp));
+
+  const one = parseManualTranscript(JSON.stringify({
+    text:'Monet ihmiset ajattelee näin.',
+    annotations:[{marker:'1',quote:'ajattelee',note:'ajattelevat',kind:'oikeinkirjoitus'}],
+    teacherSummary:'Hyvä.', gradeSeen:'32/60', criterionPointsSeen:[{name:'Kieli ja ilmaisu',points:20}] }));
+  ok('manuaali: yksi objekti luetaan', one.parsed && one.transcripts.length === 1);
+  ok('manuaali: virheet säilyvät', /ajattelee/.test(one.transcripts[0].text));
+  ok('manuaali: merkinnät säilyvät', one.transcripts[0].annotations[0].marker === '1');
+  ok('manuaali: pisteet säilyvät', one.transcripts[0].criterionPointsSeen[0].points === 20);
+  ok('manuaali: merkitään tarkistettavaksi', one.transcripts[0].needsReview === true);
+
+  const many = parseManualTranscript(JSON.stringify([{ text:'Essee yksi.' }, { text:'Essee kaksi.' }]));
+  ok('manuaali: taulukko luetaan', many.parsed && many.transcripts.length === 2);
+
+  const fenced = parseManualTranscript('```json\n{"text":"Aidattu essee."}\n```');
+  ok('manuaali: koodiaita kuoritaan', fenced.parsed && /Aidattu/.test(fenced.transcripts[0].text));
+
+  const chatty = parseManualTranscript('Toki! Tässä litterointi:\n{"text":"Essee tässä."}\nToivottavasti auttaa.');
+  ok('manuaali: selitysteksti ympäriltä siedetään', chatty.parsed && /Essee tässä/.test(chatty.transcripts[0].text));
+
+  const plain = parseManualTranscript('Axel istuu sohvallaan ja katsoo elokuvaa. Se on jännä.');
+  ok('manuaali: ei-JSON otetaan silti esseenä', plain.transcripts.length === 1 && /Axel istuu/.test(plain.transcripts[0].text));
+  ok('manuaali: ei-JSON kertoo mitä menetettiin', /merkinnät jäivät pois/.test(plain.error || ''), plain.error);
+  ok('manuaali: ei-JSON ei väitä onnistuneensa', plain.parsed === false);
+
+  const empty = parseManualTranscript('   ');
+  ok('manuaali: tyhjä syöte torjutaan', empty.transcripts.length === 0 && !!empty.error);
 
   ok('koko: skaalausraja järkevä käsialalle', MAX_IMAGE_EDGE >= 1200 && MAX_IMAGE_EDGE <= 2400);
   return results;
